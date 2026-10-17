@@ -1,0 +1,13 @@
+{
+  "source": "WorldPop 1km population density 2020",
+  "source_url": "https://worldpop.arcgis.com/arcgis/rest/services/WorldPop_Population_Density_1km/ImageServer",
+  "citation": "WorldPop et al. (2018), Global High Resolution Population Denominators Project, dataset year 2020, DOI: 10.5258/SOTON/WP00674",
+  "license": "CC BY 4.0",
+  "measure": "persons per square kilometer",
+  "brightness_transform": "log1p(density)/log1p(10000), clipped to [0,1]",
+  "resolution": {
+    "width": 1440,
+    "height": 720
+  },
+  "role": "static decorative brightness reference; not live news"
+}
