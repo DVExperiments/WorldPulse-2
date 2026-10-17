@@ -1,9 +1,9 @@
-WORLD PULSE 2.0C — GLOBAL CONNECTIONS
+WorldPulse 2.0C.3 — NEWS INTELLIGENCE
 
-Upload the FILES INSIDE THIS FOLDER directly into the WorldPulse-2 repository root.
+1. Open the ZIP and enter the WorldPulse_2.0C.3 folder.
+2. Upload everything INSIDE that folder to the WorldPulse-2 GitHub repository root.
+3. Keep your current assets/population-density.png and assets/population-density-info.json.
+4. After GitHub Pages deploys, hard-refresh.
+5. Look under NEWS INTELLIGENCE for mapped story counts and category-coloured lights.
 
-Do not delete the existing assets/population-density.png if you have already added it.
-
-Both transport layers are schematic previews, NOT verified present-day flights or live shipping routes.
-
-See README.md for installation, source references and limitations.
+If news cannot load from the original WorldPulse website, copy its data/news.json into this repository at data/news.json. That is a snapshot, not an automatic sync.
