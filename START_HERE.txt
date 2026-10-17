@@ -1,1 +1,1 @@
-WorldPulse 2.0B.3: Upload all ZIP contents directly into the root of your WorldPulse-2 repository. Preserve assets/population-density.png if it already exists. Enable GitHub Pages for main/(root).
+Upload the contents of this ZIP to your WorldPulse-2 GitHub repo root. For real population density you MUST also upload assets/population-density.png from your original WorldPulse repo. Read README.md.

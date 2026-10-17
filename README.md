@@ -1,27 +1,27 @@
-# WorldPulse 2.0B.3 — Living City Lights
+# WorldPulse 2.0B.4 — True Population Density Field
 
-A complete GitHub Pages-ready replacement based on **2.0B.2**.
+This complete GitHub Pages-ready upgrade builds on **2.0B.3** and **preserves its distinct city-light blinking, open 3D mesh, thin borders and motion settings**.
 
-## What's changed
+## What's improved
 
-- GPU-rendered population lights now have **occasional, staggered glints**, rather than continuous, barely noticeable brightness fluctuations.
-- Only a subset of dots glints, with independently timed and smoothly faded brightenings. No synchronized pulse, no rapid on/off strobe.
-- Brighter glints are visible without changing the positions or sizes of the dots.
-- Preserves the open mesh, no sphere surface, no halo, thin country boundaries, sparse latitude/longitude lines, and existing layer controls.
-- The Ambient light variation switch continues to turn blinking off, and reduced-motion disables it by default.
+- The measured population raster controls **whether a point exists**, **its brightness**, and **how many additional lights appear in its immediate area**.
+- Highly populated locations can support more, slightly larger and brighter points; very low-population areas lose most of their points.
+- Maintains GPU shader-based independent blinking; all visual points remain anchored to the Earth.
+- Preserves reduced-motion and layer toggles.
+- Correctly labels fallback geographic points as a preview, **not** population data.
 
-## Installation
+## REQUIRED for measured density
 
-Extract the ZIP and upload its **contents** to the root of your `WorldPulse-2` GitHub repository. Overwrite matching files and keep existing additional files.
+Copy the measured raster **`assets/population-density.png`** from your original WorldPulse repo into the same path in `WorldPulse-2`. **This ZIP does not include that raster.** Without it, there is no scientific basis for portraying dot presence as population density, and the site will display an explicitly labeled land-point preview.
 
-If you've uploaded `assets/population-density.png`, **keep it in place**. This ZIP does not contain that raster, and without it the dots remain a land-only preview, not population density data.
+The raster encodes relative intensity, not raw people per square kilometre. The renderer therefore displays a *relative* settlement illumination field, not an exact population count or equal-area density estimation. Visual density is additionally influenced by the map projection and viewing angle.
 
-After GitHub Pages deploys, hard refresh the page. Toggle `Ambient light variation` on, look at one population-rich area for 10–15 seconds, then toggle it off to compare.
+## Install
 
-## Accessibility
+Extract the ZIP and upload **all included files and folders** to the root of the `WorldPulse-2` GitHub repository, replacing matching files. Do not delete a previously uploaded `assets/population-density.png`.
 
-The on/off setting remains available, and browser reduced-motion preference turns animated changes off. Glints are asynchronous, smoothed and intentionally infrequent, but this is not a formal photosensitivity assessment.
+Hard-refresh after GitHub Pages deploys. Check that the panel under Population lights reads **“Measured density light field”**. Compare India, eastern China, Japan or western Europe against the Sahara and interior Australia.
 
-## Data integrity
+## Safety and data transparency
 
-There is no fake news, flight or shipping data in this build. The population brightness is only meaningful if you provide the measured raster from the original site.
+Population glints are artistic ambience, not real-time settlement activity. Motion controls and reduced-motion support remain available. News, flight routes and shipping routes have not yet been added.
