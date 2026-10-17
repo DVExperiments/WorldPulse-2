@@ -1,27 +1,18 @@
-# WorldPulse 2.0B.4 — True Population Density Field
+# WorldPulse 2.0C.4 — More Individual News Signals
 
-This complete GitHub Pages-ready upgrade builds on **2.0B.3** and **preserves its distinct city-light blinking, open 3D mesh, thin borders and motion settings**.
+A complete GitHub Pages replacement building on 2.0C.3.
 
-## What's improved
-
-- The measured population raster controls **whether a point exists**, **its brightness**, and **how many additional lights appear in its immediate area**.
-- Highly populated locations can support more, slightly larger and brighter points; very low-population areas lose most of their points.
-- Maintains GPU shader-based independent blinking; all visual points remain anchored to the Earth.
-- Preserves reduced-motion and layer toggles.
-- Correctly labels fallback geographic points as a preview, **not** population data.
-
-## REQUIRED for measured density
-
-Copy the measured raster **`assets/population-density.png`** from your original WorldPulse repo into the same path in `WorldPulse-2`. **This ZIP does not include that raster.** Without it, there is no scientific basis for portraying dot presence as population density, and the site will display an explicitly labeled land-point preview.
-
-The raster encodes relative intensity, not raw people per square kilometre. The renderer therefore displays a *relative* settlement illumination field, not an exact population count or equal-area density estimation. Visual density is additionally influenced by the map projection and viewing angle.
+## Changes
+- **Balanced (default)**: smaller markers, with only limited geographic clustering at distant zoom.
+- **Individual**: every mapped news signal shown separately, including overlapping signals sharing a location.
+- **Clustered**: retains the original zoom-dependent category-specific grouping.
+- Category colours, marker clicking, links, refresh, population lights, flight/shipping corridors and route motion are unchanged.
+- No invented news or modified geographic coordinates.
 
 ## Install
+Extract the ZIP and upload the files **inside** its `WorldPulse_2.0C.4/` folder directly to the root of your `WorldPulse-2` repository, replacing matching existing files. Keep `assets/population-density.png` and its metadata JSON. Wait for GitHub Pages to publish and hard refresh.
 
-Extract the ZIP and upload **all included files and folders** to the root of the `WorldPulse-2` GitHub repository, replacing matching files. Do not delete a previously uploaded `assets/population-density.png`.
+Select the three modes in the new **NEWS DISPLAY** control, below the News signals toggle. All modes use the same feed; only display grouping changes.
 
-Hard-refresh after GitHub Pages deploys. Check that the panel under Population lights reads **“Measured density light field”**. Compare India, eastern China, Japan or western Europe against the Sahara and interior Australia.
-
-## Safety and data transparency
-
-Population glints are artistic ambience, not real-time settlement activity. Motion controls and reduced-motion support remain available. News, flight routes and shipping routes have not yet been added.
+## Limitations
+Geographic news accuracy comes from the original feed. Multiple signals at identical mapped coordinates will still visually overlap in Individual mode. We deliberately do not spread them to invented coordinates. Grouping is by category and geographic proximity and does not imply shared stories. Static hosting and original read-only live feed connection are unchanged.
