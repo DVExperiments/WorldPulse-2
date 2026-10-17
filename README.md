@@ -1,28 +1,27 @@
-# WorldPulse 2.0B.2 — Population Grid and Border Refinement
+# WorldPulse 2.0B.3 — Living City Lights
 
-This full GitHub Pages replacement builds on **2.0B.1**, preserving the open mesh, no solid visible globe, no atmosphere/halo, and sparse 20-degree lat/long lines.
+A complete GitHub Pages-ready replacement based on **2.0B.2**.
 
-## Fixes
-- **Flicker actually responds to its toggle.** Shader updates were previously only set when the population layer first loaded. Now enabling/disabling the checkbox changes the shader in real time. Independent smoothly interpolated noise with a stronger brightness range is used; no synchronized pulse or sharp strobe flashes.
-- **Visibility across zoom.** GPU point sizes are clamped to remain small but perceptible over a greater camera distance range.
-- **Measured density restoration.** If `assets/population-density.png` is available, it now modulates both point brightness and dot presence, allowing dense areas to appear denser. This uses the raster from the **original WorldPulse project**; it is not bundled or falsely recreated.
-- **Borders are visibly finer.** Removed the duplicate scaled glow line, leaving a single bright cyan WebGL line.
+## What's changed
 
-## Essential step for measured population
-Your new `WorldPulse-2` repository currently appears to lack the original measured population raster, which is why the preview dots are arranged across land nearly uniformly. To fix this, in your ORIGINAL WorldPulse GitHub repository, open **assets/population-density.png**, click Download raw file, then upload it into the NEW WorldPulse-2 repository at **assets/population-density.png**. In GitHub you can create the `assets` folder if needed. Do not rename the PNG. This raster was previously generated from WorldPop data by the original project's separate workflow. Do not run or change any news collection workflow.
-
-Until the PNG is present, the UI deliberately says **Land-point preview — not population data**. Population *appearance* cannot be fully corrected by shaders without population data.
+- GPU-rendered population lights now have **occasional, staggered glints**, rather than continuous, barely noticeable brightness fluctuations.
+- Only a subset of dots glints, with independently timed and smoothly faded brightenings. No synchronized pulse, no rapid on/off strobe.
+- Brighter glints are visible without changing the positions or sizes of the dots.
+- Preserves the open mesh, no sphere surface, no halo, thin country boundaries, sparse latitude/longitude lines, and existing layer controls.
+- The Ambient light variation switch continues to turn blinking off, and reduced-motion disables it by default.
 
 ## Installation
-Upload the extracted contents of this ZIP into the root of `WorldPulse-2`, replacing existing matching files. Include the `src`, `data` and `assets` folder structures. **Do not overwrite/delete your existing population raster when updating**. Wait for GitHub Pages to deploy, then press Ctrl+F5.
 
-## Controls and accessibility
-The Ambient light variation toggle now works after loading. With reduced-motion enabled, animation is disabled. Soft brightness changes are not formally photosensitivity-tested; keep the switch off if sensitive to animated light.
+Extract the ZIP and upload its **contents** to the root of your `WorldPulse-2` GitHub repository. Overwrite matching files and keep existing additional files.
 
-## Testing
-1. With the globe loaded, toggle Ambient light variation off/on while looking at a population-rich area.
-2. Verify the `Population lights` subtitle says **Measured population-weighted points** once the raster is installed.
-3. Zoom between global and regional views and check point visibility.
-4. Confirm country boundaries stay fine and bright, and there is no bubble/halo.
+If you've uploaded `assets/population-density.png`, **keep it in place**. This ZIP does not contain that raster, and without it the dots remain a land-only preview, not population density data.
 
-No news, air or sea route data is fabricated in this foundation build.
+After GitHub Pages deploys, hard refresh the page. Toggle `Ambient light variation` on, look at one population-rich area for 10–15 seconds, then toggle it off to compare.
+
+## Accessibility
+
+The on/off setting remains available, and browser reduced-motion preference turns animated changes off. Glints are asynchronous, smoothed and intentionally infrequent, but this is not a formal photosensitivity assessment.
+
+## Data integrity
+
+There is no fake news, flight or shipping data in this build. The population brightness is only meaningful if you provide the measured raster from the original site.

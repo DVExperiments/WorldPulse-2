@@ -1,4 +1,1 @@
-WorldPulse 2.0B.2 — Full GitHub Pages replacement.
-1. Upload extracted ZIP contents into WorldPulse-2 repo ROOT.
-2. Restore real population density: copy ORIGINAL WorldPulse assets/population-density.png into WorldPulse-2/assets/population-density.png.
-3. Wait for Pages deploy then hard refresh. See README.md.
+WorldPulse 2.0B.3: Upload all ZIP contents directly into the root of your WorldPulse-2 repository. Preserve assets/population-density.png if it already exists. Enable GitHub Pages for main/(root).

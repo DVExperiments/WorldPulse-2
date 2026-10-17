@@ -57,14 +57,24 @@ float rnd(float v){return fract(sin(v*12.9898)*43758.5453);}
 void main(){
  float r=length(gl_PointCoord-.5);
  float disc=1.-smoothstep(.29,.51,r);
- // Soft, distinct points. Each point follows a different slowly-changing random sequence.
- float t=uTime*(.60+rnd(vSeed*1.17)*.64)+vSeed*3.71;
- float k=floor(t);float f=fract(t);float e=f*f*(3.-2.*f);
- float n=mix(rnd(k+vSeed*1.47),rnd(k+1.+vSeed*1.47),e);
- float slowT=t*.29;float sk=floor(slowT);float sf=fract(slowT);sf=sf*sf*(3.-2.*sf);
- float n2=mix(rnd(sk+vSeed*4.31),rnd(sk+1.+vSeed*4.31),sf);
- float variation=mix(.72, .23+1.78*(.7*n+.3*n2),uFlicker);
- float opacity=disc*clamp((.19+.81*pow(vBrightness,.70))*variation,0.,.93);
+ // Individual, occasional glints: no synchronized wave or continuous pulsing.
+ // About one in four lights participates; each gets a unique 3.2–7.4 s cycle.
+ float chosen=step(.75,rnd(vSeed*2.91+3.4));
+ float period=mix(3.2,7.4,rnd(vSeed*5.7+1.9));
+ float phase=uTime/period+rnd(vSeed*7.43);
+ float cycle=floor(phase);
+ float f=fract(phase);
+ // Deterministic event probability prevents repetitive all-dot blinking.
+ float happens=step(.32,rnd(cycle*17.83+vSeed*11.37));
+ float start=mix(.14,.54,rnd(cycle*3.17+vSeed*1.33));
+ float dur=mix(.16,.29,rnd(cycle*7.13+vSeed*4.61));
+ // A gentle fast-on / slower-off glint; edges are smooth, never a hard flash.
+ float rise=smoothstep(start,start+.055,f);
+ float fall=1.-smoothstep(start+.055,start+dur,f);
+ float glint=chosen*happens*rise*fall;
+ // Subdued constant lights, with readable occasional brightening.
+ float base=(.30+.58*pow(vBrightness,.66));
+ float opacity=disc*clamp(base*(.51+uFlicker*1.02*glint),0.,.98);
  gl_FragColor=vec4(.24,.99,.91,opacity);
 }`});const points=new THREE.Points(geom,material);points.frustumCulled=false;return {object:points,material,count:pos.length/3,measured:real};}
 export function emptyRouteLayers(){return {news:new THREE.Group(),air:new THREE.Group(),sea:new THREE.Group()};}
