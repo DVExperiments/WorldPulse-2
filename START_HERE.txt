@@ -1,11 +1,5 @@
-WorldPulse 2.0A — standalone Three.js prototype
+WorldPulse 2.0B — Open Mesh Earth
 
-1. Make a NEW GitHub repo (suggested: WorldPulse-2).
-2. Unzip and upload the files INSIDE this ZIP to the repository root.
-   index.html must be visible at the top level, not nested inside a folder.
-3. Settings > Pages > Deploy from branch > main > /(root) > Save.
-4. Visit https://dvexperiments.github.io/WorldPulse-2/ (if using that repo name).
+Upload everything in this ZIP directly into the ROOT of your WorldPulse-2 GitHub repository, replacing existing files. Keep the existing WorldPulse repository untouched. Hard-refresh once Pages updates.
 
-This is only the 3D renderer foundation. News and transit paths are intentionally not yet populated.
-For measured population brightness, copy the existing raster into assets/population-density.png.
-Your original WorldPulse site and its collection workflow are untouched.
+No atmosphere, halo, or solid sphere is visible. Toggle Network wireframe to compare.

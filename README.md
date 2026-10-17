@@ -1,70 +1,32 @@
-# WorldPulse 2.0A — Living Earth rendering foundation
+# WorldPulse 2.0B — Open Mesh Earth
 
-A separate Three.js proof of architecture for the next generation of WorldPulse, designed to coexist with the current production news site. This release is a **rendering prototype**, not a replacement for the functioning news website.
+A GitHub Pages–ready evolution of the working 2.0A Three.js prototype.
 
-## Included
-- True Three.js/WebGL Earth, OrbitControls rotation/zoom and atmosphere.
-- Neon country-boundary geometry from the existing WorldPulse border GeoJSON.
-- Individual GPU-rendered surface points with asynchronous shader-based brightness changes (no repeated large canvas uploads).
-- Independent scene groups for Earth, borders, population points, news, flight routes, shipping corridors and atmosphere.
-- Layer switches, manual rotation, reduced-motion controls and graphical quality options.
-- Responsive standalone web UI; no accounts or server required.
-- Optional measured-population-raster integration.
+## What changed
 
-### Important data disclosure
-The bundled download has **no** `assets/population-density.png`. Until a real raster is supplied, the cyan points simply illustrate **land geography**, with procedural brightness that is **not a population measurement**. Do not describe that fallback as measured population density. To enable measured brightness, copy your original WorldPulse `assets/population-density.png` to this new repo's `assets/` folder. The loader reads its red channel as a value; the original build should use a worldwide equirectangular raster. Check orientation and units against the original project's raster generator.
+- Removed the opaque planet sphere material completely.
+- Removed the atmosphere/halo geometry and its toggle; no bubble effect.
+- Added an independent **Network wireframe** switch for a low-contrast 3D spherical lattice: meridians, parallels and sparse diagonal links.
+- Kept cyan population lights, neon country outlines, camera navigation, automatic rotation, reduced-motion handling and graphics settings.
+- Kept a **colorless depth-only sphere** strictly for occluding back-side geometry. It cannot be seen, and isn't a physical globe surface. This makes foreground borders and points readable instead of showing both sides through the planet.
+- Retained separate `news`, `air`, `sea` scene groups for real datasets later. Nothing is simulated as genuine traffic.
 
-There are **no fabricated news markers, airline flight paths or shipping lanes** in v2.0A. Independent, empty data groups are provided for future integrations.
+## Install on GitHub Pages
 
-## Publish on GitHub Pages (easiest, no build required)
-1. Create a **new repository**, for example `WorldPulse-2` (do not overwrite the existing WorldPulse repo).
-2. Extract this ZIP. Upload the **files and folders inside** the directory to the **repository root**: `index.html`, `style.css`, `src/`, `data/`, `assets/`, and supporting files. Do not upload the enclosing folder as a single directory.
-3. In GitHub, go to **Settings → Pages → Build and deployment → Deploy from a branch**. Select `main`, `/ (root)` and save.
-4. Your test URL will be `https://<github-username>.github.io/<repo-name>/`, for example `https://dvexperiments.github.io/WorldPulse-2/` if named `WorldPulse-2` under that account.
-5. Wait for Pages, then hard-refresh. The first load requires access to jsDelivr to download Three.js.
+Upload the **contents** of this ZIP to the **root** of your separate `WorldPulse-2` repository, replacing files when prompted. `index.html`, `style.css`, `src/` and `data/` must be directly in the root; do not upload a parent folder instead. The existing WorldPulse site is not touched.
 
-**Do not open `index.html` by double-clicking it on your computer.** ES modules and GeoJSON loading require a local web server or GitHub Pages.
+Settings → Pages → Deploy from branch → `main` / `(root)`; after deployment, hard-refresh your page (`Ctrl+F5`).
 
-## Optional local development with Vite
+The static site runs from `index.html` with CDN-hosted Three.js; no local build step is required. The included `package.json` and `vite.config.js` support optional local development via `npm install` / `npm run dev` and compilation with `npm run build`.
 
-Node 20+ recommended:
+## Important note about population points
 
-```bash
-npm install
-npm run dev
-```
+This starter uses land points as a geographic preview unless `assets/population-density.png` is supplied. The measured population raster is not bundled. Flight, shipping and news layers remain empty until sourced data is integrated.
 
-For a compiled deployment:
+## Visual controls
 
-```bash
-npm run build
-```
+`Population lights`, `Country boundaries`, `Network wireframe`, `Ambient light variation`, `Slow automatic rotation`, `Reduce motion` and `Graphics quality` are independent.
 
-Upload contents of `dist/` to a static host (or use a Pages Actions workflow in the future). `base: './'` supports GitHub Pages subpaths. The included root files are already **directly deployable** to GitHub Pages, so you do not have to install Node to try the project.
+## Implementation detail
 
-## Accessibility and performance
-- Automatically disables rotation and illumination variation when the browser requests reduced motion.
-- User can independently disable animation and set graphics to Low power.
-- Markers are real GPU points; no expensive frame-by-frame map image uploads.
-- Constellations/news, airline/ship routes and data events will be distinct layers so they can be toggled independently.
-- Performance and colour/contrast should be tested on actual target devices and with accessibility users before deployment as production.
-
-## Technical limitations in this alpha
-- GeoJSON linework is Earth-surface geometry, not terrain height data.
-- Flight and shipping route layers are empty deliberately pending appropriately sourced data.
-- No live news data is connected yet. The current production news feed stays intact.
-- Three.js dependencies in the directly hosted version load from a third-party CDN; a compiled Vite production build can bundle code locally.
-- Three.js Vite dependency installation/build and rendering were not available to verify in the authoring environment; source JS syntax was checked.
-
-## Next milestones
-- 2.0B: port real WorldPulse category-filtered news and location clusters into true GPU sprites/point geometry.
-- 2.0C: preprocessed, licensed airport-to-airport route graph with altitude arcs; distinguish published routes from live aircraft positions.
-- 2.0D: sourced maritime corridors/ports geometry; distinguish historical/scheduled corridors from live AIS vessel positions.
-- 2.0E: quality controls, LOD, interaction polish, data transparency and accessibility review.
-
-## Relevant files
-- `src/main.js`: renderer, controls, runtime layer orchestration
-- `src/layers.js`: Earth, borders, population GPU shader and reserved future layers
-- `src/geo.js`: geographic coordinate conversion and land containment
-- `data/world-borders.geojson`: bundled geographic boundary input
-- `style.css`, `index.html`: UI
+The wireframe is true world-space THREE.LineSegments geometry, not a texture painted onto a sphere. The hidden depth mask preserves front-side visibility and depth, while adding **no visible shell, shading, or Fresnel halo**.
