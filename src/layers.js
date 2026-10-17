@@ -9,26 +9,28 @@ export function earthLayer(){
  group.add(mask);
  return group;
 }
-// Geometric lattice: wire-only lines, no filled polygons or back-lit sphere.
-// Meridians, parallels and sparse diagonal connections define the 3D shape.
+// Clean open globe: sparse meridians and parallels only.
+// World-space lines remain independently toggleable; there are no diagonals.
 export function meshLayer(){
- const group=new THREE.Group(),grid=[],diagonal=[];
+ const group=new THREE.Group(),positions=[];
  const R=1.008;
- const line=(a,b,arr)=>arr.push(...llToXYZ(a[0],a[1],R),...llToXYZ(b[0],b[1],R));
- for(let lon=-180;lon<180;lon+=15){for(let lat=-84;lat<84;lat+=3){line([lat,lon],[lat+3,lon],grid);}}
- for(let lat=-75;lat<=75;lat+=15){for(let lon=-180;lon<180;lon+=3){line([lat,lon],[lat,lon+3],grid);}}
- // Interlocking diagonals in sparse bands give a true triangulated network feel.
- for(let lat=-75;lat<75;lat+=15){for(let lon=-180;lon<180;lon+=15){
-  const flip=((Math.floor((lat+75)/15)+Math.floor((lon+180)/15))%2)===0;
-  for(let k=0;k<6;k++){
-   const u=k/6,v=(k+1)/6;
-   if(flip)line([lat+15*u,lon+15*u],[lat+15*v,lon+15*v],diagonal);
-   else line([lat+15*u,lon+15*(1-u)],[lat+15*v,lon+15*(1-v)],diagonal);
-  }
- }}
- function add(positions,color,opacity){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));const m=new THREE.LineBasicMaterial({color,transparent:true,opacity,depthTest:true,depthWrite:false});const obj=new THREE.LineSegments(g,m);obj.frustumCulled=false;group.add(obj);}
- add(grid,0x1b97a2,.23);
- add(diagonal,0x31aab3,.09);
+ const line=(a,b)=>positions.push(...llToXYZ(a[0],a[1],R),...llToXYZ(b[0],b[1],R));
+ // Wide spacing lets the geography and population data take visual priority.
+ // Small segments approximate smooth arcs on the sphere.
+ for(let lon=-180;lon<180;lon+=20){
+  for(let lat=-80;lat<80;lat+=2){line([lat,lon],[lat+2,lon]);}
+ }
+ for(let lat=-80;lat<=80;lat+=20){
+  for(let lon=-180;lon<180;lon+=2){line([lat,lon],[lat,lon+2]);}
+ }
+ const geometry=new THREE.BufferGeometry();
+ geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+ const material=new THREE.LineBasicMaterial({
+  color:0x1b97a2,transparent:true,opacity:.14,depthTest:true,depthWrite:false
+ });
+ const mesh=new THREE.LineSegments(geometry,material);
+ mesh.frustumCulled=false;
+ group.add(mesh);
  return group;
 }
 export function borderLayer(features){const group=new THREE.Group(),positions=[];for(const f of features){const geom=f.geometry;const polys=geom.type==='Polygon'?[geom.coordinates]:geom.type==='MultiPolygon'?geom.coordinates:[];for(const rings of polys){for(const ring of rings){for(let j=1;j<ring.length;j++){const a=ring[j-1],b=ring[j]; // Skip dateline jumps to prevent lines crossing the sphere.

@@ -1,12 +1,12 @@
-# WorldPulse 2.0B — Open Mesh Earth
+# WorldPulse 2.0B.1 — Clean Geographic Grid
 
-A GitHub Pages–ready evolution of the working 2.0A Three.js prototype.
+A focused refinement of the working 2.0B Three.js open-mesh prototype.
 
 ## What changed
 
 - Removed the opaque planet sphere material completely.
 - Removed the atmosphere/halo geometry and its toggle; no bubble effect.
-- Added an independent **Network wireframe** switch for a low-contrast 3D spherical lattice: meridians, parallels and sparse diagonal links.
+- Refined the independently switchable **Network wireframe** into a clean grid of meridians and parallels only, with all diagonal connections removed. Meridians and parallels are each 20° apart and significantly fainter than country borders.
 - Kept cyan population lights, neon country outlines, camera navigation, automatic rotation, reduced-motion handling and graphics settings.
 - Kept a **colorless depth-only sphere** strictly for occluding back-side geometry. It cannot be seen, and isn't a physical globe surface. This makes foreground borders and points readable instead of showing both sides through the planet.
 - Retained separate `news`, `air`, `sea` scene groups for real datasets later. Nothing is simulated as genuine traffic.

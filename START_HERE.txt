@@ -1,5 +1,7 @@
-WorldPulse 2.0B — Open Mesh Earth
+WorldPulse 2.0B.1 — Clean Geographic Grid
 
-Upload everything in this ZIP directly into the ROOT of your WorldPulse-2 GitHub repository, replacing existing files. Keep the existing WorldPulse repository untouched. Hard-refresh once Pages updates.
+Upload the CONTENTS of this ZIP to your existing WorldPulse-2 repository root, replacing older files. Preserve the folder hierarchy. Then wait for GitHub Pages to publish and hard-refresh (Ctrl+F5).
 
-No atmosphere, halo, or solid sphere is visible. Toggle Network wireframe to compare.
+Removes diagonal network lines, uses faint 20-degree latitude/longitude lines; keeps the invisible depth mask, population lights, country borders, and NO atmosphere/visible sphere.
+
+No changes to the original WorldPulse news site.
