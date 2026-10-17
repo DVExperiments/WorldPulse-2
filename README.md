@@ -1,44 +1,42 @@
-# WorldPulse 2.0B.5 — Density Field Spread
+# WorldPulse 2.0C — Global Connections Preview
 
-This complete GitHub Pages-ready upgrade builds on **2.0B.4** and keeps the open mesh globe, thin bright borders, wireframe controls and ambient light glints.
+**GitHub Pages-ready** continuation of WorldPulse 2.0B.5.
 
-## What changes in 2.0B.5
+## What's new
+- Separate AIR and SEA layers, independently switchable.
+- 100+ *schematic* flight-corridor arcs using approximate real airport locations. These airport pairs illustrate global connectivity; **they are not validated schedules or current service availability**.
+- 16 generalized shipping corridors routed along mapped maritime waypoints and major chokepoints. These are **illustrative generalized lanes, not navigable routes or vessel tracks**.
+- Visually distinct flight arcs (cool blue and elevated) versus shipping corridors (teal and low over the water).
+- Optional slow moving light traces; disabled with reduced-motion setting. No solid globe or atmospheric halo.
+- Population-density light field, glints, thin country borders, geographic wireframe, and graphic settings preserved from 2.0B.5.
 
-- Population lights now use a **spread-aware density field** instead of relying mainly on a single local raster sample.
-- Denser settlements softly influence **nearby lights as well as their own position**, so populated regions read as broader connected fields rather than isolated pinpricks.
-- Sparse interiors, deserts and remote regions remain comparatively quiet.
-- Dot brightness and companion-light generation now respond to the **combined local + nearby density signal**.
-- Fallback behaviour is unchanged: if the population raster is missing, the app clearly stays in **land-point preview** mode.
+## Data sources / limitations
 
-## Why this patch exists
+The **airport-pair route collection is hand-curated and illustrative**, informed by broadly known international aviation hubs and OpenFlights airport/route data definitions, but source route files were not downloadable in the build environment and the individual pairs have **not been independently cross-checked**. Coordinates are approximate.
 
-2.0B.4 improved local population weighting, but the density representation could still look too thin or too isolated in some areas. This patch is intended to make population patterns feel more geographically continuous.
+- OpenFlights database: https://openflights.org/data.php (Open Database License / ODbL). The enclosed simplified visual network is **not a copy or claimed validated extract** of that dataset.
 
-## REQUIRED for measured density
+The **maritime corridor geometry is hand-simplified**, using geographic landmarks including Suez, Malacca, Panama, and the Cape of Good Hope. The general structure is informed by published global shipping-lane references but is not copied from or an exact geometry representation of those sources.
 
-Copy the measured raster **`assets/population-density.png`** from your original WorldPulse repo into the same path in `WorldPulse-2`. **This ZIP does not include that raster.**
+- Benden, P. (2022), *Global Shipping Lanes*: https://doi.org/10.5281/zenodo.6361763
+- Repository and usage notes: https://github.com/newzealandpaul/Shipping-Lanes
 
-Without it, the app cannot measure density and will fall back to the clearly labelled land-point preview.
+No actual AIS vessels, live aircraft, scheduled flights, counts, trade volume, or transport frequency are claimed. **Do not use these data for navigation or factual route-status decisions.** Upgrade these modules with georeferenced, license-appropriate route files later.
 
-## Install
+## Installation
 
-1. Extract the ZIP.
-2. Upload **all included files and folders** into the root of the `WorldPulse-2` GitHub repository.
-3. Replace matching files.
-4. Keep your existing `assets/population-density.png` in place.
-5. Wait for GitHub Pages to redeploy, then hard refresh.
+1. Download ZIP and **extract it**.
+2. Upload the contents **directly to the root** of your `WorldPulse-2` GitHub repository; `index.html` must be at the root.
+3. Replace files when prompted, while **retaining your existing `assets/population-density.png`**.
+4. Keep the original `WorldPulse` repository untouched.
+5. After GitHub Pages deploys, hard-refresh.
 
-## Expected result
+The measured population raster is **not included** in this package. If absent, the existing UI continues to disclose its land-point preview mode.
 
-Dense regions should now read more continuously, including:
+## Suggested next milestone
 
-- eastern United States
-- Great Lakes corridor
-- California and Texas corridors
-- western and central Europe
-- India
-- eastern China / Korea / Japan
-- southeast Brazil
-- denser African corridors and coastlines
+2.0C.1: import and validate openly licensed actual flight route records and georeferenced shipping-lane polylines, apply distance-based simplification, precise dateline crossing, zoom-level density and interactive feature labels. Follow with news intelligence.
 
-This remains a **visual density field**, not a person-per-dot map.
+## Accessibility
+
+The route-motion toggle and existing reduced-motion setting disable optional animated motion. Movement is illustrative, not real-time movement of aircraft or vessels.

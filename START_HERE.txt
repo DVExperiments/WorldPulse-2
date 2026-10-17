@@ -1,1 +1,9 @@
-Upload the contents of this ZIP to your WorldPulse-2 GitHub repo root. For real population density you MUST also upload assets/population-density.png from your original WorldPulse repo. Read README.md.
+WORLD PULSE 2.0C — GLOBAL CONNECTIONS
+
+Upload the FILES INSIDE THIS FOLDER directly into the WorldPulse-2 repository root.
+
+Do not delete the existing assets/population-density.png if you have already added it.
+
+Both transport layers are schematic previews, NOT verified present-day flights or live shipping routes.
+
+See README.md for installation, source references and limitations.
