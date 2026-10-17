@@ -1,27 +1,44 @@
-# WorldPulse 2.0B.4 — True Population Density Field
+# WorldPulse 2.0B.5 — Density Field Spread
 
-This complete GitHub Pages-ready upgrade builds on **2.0B.3** and **preserves its distinct city-light blinking, open 3D mesh, thin borders and motion settings**.
+This complete GitHub Pages-ready upgrade builds on **2.0B.4** and keeps the open mesh globe, thin bright borders, wireframe controls and ambient light glints.
 
-## What's improved
+## What changes in 2.0B.5
 
-- The measured population raster controls **whether a point exists**, **its brightness**, and **how many additional lights appear in its immediate area**.
-- Highly populated locations can support more, slightly larger and brighter points; very low-population areas lose most of their points.
-- Maintains GPU shader-based independent blinking; all visual points remain anchored to the Earth.
-- Preserves reduced-motion and layer toggles.
-- Correctly labels fallback geographic points as a preview, **not** population data.
+- Population lights now use a **spread-aware density field** instead of relying mainly on a single local raster sample.
+- Denser settlements softly influence **nearby lights as well as their own position**, so populated regions read as broader connected fields rather than isolated pinpricks.
+- Sparse interiors, deserts and remote regions remain comparatively quiet.
+- Dot brightness and companion-light generation now respond to the **combined local + nearby density signal**.
+- Fallback behaviour is unchanged: if the population raster is missing, the app clearly stays in **land-point preview** mode.
+
+## Why this patch exists
+
+2.0B.4 improved local population weighting, but the density representation could still look too thin or too isolated in some areas. This patch is intended to make population patterns feel more geographically continuous.
 
 ## REQUIRED for measured density
 
-Copy the measured raster **`assets/population-density.png`** from your original WorldPulse repo into the same path in `WorldPulse-2`. **This ZIP does not include that raster.** Without it, there is no scientific basis for portraying dot presence as population density, and the site will display an explicitly labeled land-point preview.
+Copy the measured raster **`assets/population-density.png`** from your original WorldPulse repo into the same path in `WorldPulse-2`. **This ZIP does not include that raster.**
 
-The raster encodes relative intensity, not raw people per square kilometre. The renderer therefore displays a *relative* settlement illumination field, not an exact population count or equal-area density estimation. Visual density is additionally influenced by the map projection and viewing angle.
+Without it, the app cannot measure density and will fall back to the clearly labelled land-point preview.
 
 ## Install
 
-Extract the ZIP and upload **all included files and folders** to the root of the `WorldPulse-2` GitHub repository, replacing matching files. Do not delete a previously uploaded `assets/population-density.png`.
+1. Extract the ZIP.
+2. Upload **all included files and folders** into the root of the `WorldPulse-2` GitHub repository.
+3. Replace matching files.
+4. Keep your existing `assets/population-density.png` in place.
+5. Wait for GitHub Pages to redeploy, then hard refresh.
 
-Hard-refresh after GitHub Pages deploys. Check that the panel under Population lights reads **“Measured density light field”**. Compare India, eastern China, Japan or western Europe against the Sahara and interior Australia.
+## Expected result
 
-## Safety and data transparency
+Dense regions should now read more continuously, including:
 
-Population glints are artistic ambience, not real-time settlement activity. Motion controls and reduced-motion support remain available. News, flight routes and shipping routes have not yet been added.
+- eastern United States
+- Great Lakes corridor
+- California and Texas corridors
+- western and central Europe
+- India
+- eastern China / Korea / Japan
+- southeast Brazil
+- denser African corridors and coastlines
+
+This remains a **visual density field**, not a person-per-dot map.
