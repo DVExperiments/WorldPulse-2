@@ -1,4 +1,6 @@
-# WorldPulse 2.0C — Global Connections Preview
+# WorldPulse 2.0C.1 — Travelling Route Highlights
+
+## Base: Global Connections Preview
 
 **GitHub Pages-ready** continuation of WorldPulse 2.0B.5.
 
@@ -7,7 +9,7 @@
 - 100+ *schematic* flight-corridor arcs using approximate real airport locations. These airport pairs illustrate global connectivity; **they are not validated schedules or current service availability**.
 - 16 generalized shipping corridors routed along mapped maritime waypoints and major chokepoints. These are **illustrative generalized lanes, not navigable routes or vessel tracks**.
 - Visually distinct flight arcs (cool blue and elevated) versus shipping corridors (teal and low over the water).
-- Optional slow moving light traces; disabled with reduced-motion setting. No solid globe or atmospheric halo.
+- Optional soft directional highlight pulses; disabled with reduced-motion setting. No solid globe or atmospheric halo.
 - Population-density light field, glints, thin country borders, geographic wireframe, and graphic settings preserved from 2.0B.5.
 
 ## Data sources / limitations

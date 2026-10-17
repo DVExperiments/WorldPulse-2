@@ -32,7 +32,20 @@ function segmentGeometry(paths,opacity,color,altFn){
  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,
  uniforms:{uTime:{value:0},uMotion:{value:1},uAlpha:{value:opacity},uColor:{value:new THREE.Color(color)}},
  vertexShader:`attribute float aProgress;attribute float aPhase;varying float vProgress;varying float vPhase;void main(){vProgress=aProgress;vPhase=aPhase;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
- fragmentShader:`uniform float uTime;uniform float uMotion;uniform float uAlpha;uniform vec3 uColor;varying float vProgress;varying float vPhase;void main(){float travelling=pow(max(0.,1.-abs(fract(vProgress-uTime*.05+vPhase)-.5)*16.),2.);float intensity=uAlpha*(.68+uMotion*.62*travelling);gl_FragColor=vec4(uColor,intensity);}`});
+ fragmentShader:`
+ uniform float uTime;uniform float uMotion;uniform float uAlpha;uniform vec3 uColor;
+ varying float vProgress;varying float vPhase;
+ void main(){
+  // Positive travel from the first mapped waypoint toward the final one.
+  // A broad, soft tail follows a smaller luminous leading crest.
+  float head=fract(uTime*.073-vPhase);
+  float behind=fract(head-vProgress+1.0);
+  float tail=exp(-pow(behind/.125,1.45)*3.2);
+  float crest=exp(-pow(min(behind,1.0-behind)/.028,2.0)*2.5);
+  // Keep the original faint corridor visible when motion is disabled.
+  float intensity=uAlpha*(.69+uMotion*(1.65*tail+2.5*crest));
+  gl_FragColor=vec4(uColor,clamp(intensity,0.0,.92));
+ }`});
  const lines=new THREE.LineSegments(geom,material);lines.frustumCulled=false;return lines;
 }
 export function buildAirLayer(data){
