@@ -1,44 +1,26 @@
-# WorldPulse 2.0C.1 — Travelling Route Highlights
+# WorldPulse 2.0C.2 — Population Accuracy / New Zealand Test
 
-## Base: Global Connections Preview
+This GitHub Pages-ready release builds on 2.0C.1 and **keeps flight/shipping corridors, their directional highlights, the open mesh, cyan border styling and motion controls unchanged**.
 
-**GitHub Pages-ready** continuation of WorldPulse 2.0B.5.
+## Main improvements
+- Reads `assets/population-density-info.json` and checks the raster resolution against metadata.
+- Uses bilinear sampling aligned to the 1440×720 image. Image pixel values represent `log1p(persons/km²)/log1p(10000)` according to the uploaded metadata, and are interpreted as relative intensity, not raw density values.
+- Restricts neighborhood smoothing to ~0.3° instead of several degrees, avoiding false population spread across nearby sparsely inhabited regions.
+- Generates additional points using sub-degree local sampling in areas where the raster shows settlement. Higher detail fades in as users zoom in, rather than overwhelming the world overview.
+- Preserves the existing soft independent blinking and reduced-motion option.
 
-## What's new
-- Separate AIR and SEA layers, independently switchable.
-- 100+ *schematic* flight-corridor arcs using approximate real airport locations. These airport pairs illustrate global connectivity; **they are not validated schedules or current service availability**.
-- 16 generalized shipping corridors routed along mapped maritime waypoints and major chokepoints. These are **illustrative generalized lanes, not navigable routes or vessel tracks**.
-- Visually distinct flight arcs (cool blue and elevated) versus shipping corridors (teal and low over the water).
-- Optional soft directional highlight pulses; disabled with reduced-motion setting. No solid globe or atmospheric halo.
-- Population-density light field, glints, thin country borders, geographic wireframe, and graphic settings preserved from 2.0B.5.
-
-## Data sources / limitations
-
-The **airport-pair route collection is hand-curated and illustrative**, informed by broadly known international aviation hubs and OpenFlights airport/route data definitions, but source route files were not downloadable in the build environment and the individual pairs have **not been independently cross-checked**. Coordinates are approximate.
-
-- OpenFlights database: https://openflights.org/data.php (Open Database License / ODbL). The enclosed simplified visual network is **not a copy or claimed validated extract** of that dataset.
-
-The **maritime corridor geometry is hand-simplified**, using geographic landmarks including Suez, Malacca, Panama, and the Cape of Good Hope. The general structure is informed by published global shipping-lane references but is not copied from or an exact geometry representation of those sources.
-
-- Benden, P. (2022), *Global Shipping Lanes*: https://doi.org/10.5281/zenodo.6361763
-- Repository and usage notes: https://github.com/newzealandpaul/Shipping-Lanes
-
-No actual AIS vessels, live aircraft, scheduled flights, counts, trade volume, or transport frequency are claimed. **Do not use these data for navigation or factual route-status decisions.** Upgrade these modules with georeferenced, license-appropriate route files later.
+## Important files
+Your existing `assets/population-density.png` and `assets/population-density-info.json` must remain in the `WorldPulse-2` repository. **Neither raster nor JSON is overwritten by this ZIP.** If the PNG is missing, the map shows its labelled geographic preview.
 
 ## Installation
+Extract the ZIP. Upload the contents of the **WorldPulse_2.0C.2** folder to the repo root, with `index.html` at the root. Replace source files, preserve the existing population assets. Refresh after deployment.
 
-1. Download ZIP and **extract it**.
-2. Upload the contents **directly to the root** of your `WorldPulse-2` GitHub repository; `index.html` must be at the root.
-3. Replace files when prompted, while **retaining your existing `assets/population-density.png`**.
-4. Keep the original `WorldPulse` repository untouched.
-5. After GitHub Pages deploys, hard-refresh.
+## Verification
+1. Confirm Population lights reads **Measured density · zoom-adaptive**.
+2. Zoom to New Zealand. Look for more localised concentrations around major urban centres and fewer unrelated inland points.
+3. Zoom back out; fine-detail points should soften/fade to avoid clutter.
+4. Check flight and shipping motion still behave as in 2.0C.1.
 
-The measured population raster is **not included** in this package. If absent, the existing UI continues to disclose its land-point preview mode.
+The source raster itself is only 0.25° per pixel, so this patch cannot provide accurate individual-city-boundary or neighbourhood patterns. A true higher-resolution WorldPop dataset, clipped to countries, is needed for that.
 
-## Suggested next milestone
-
-2.0C.1: import and validate openly licensed actual flight route records and georeferenced shipping-lane polylines, apply distance-based simplification, precise dateline crossing, zoom-level density and interactive feature labels. Follow with news intelligence.
-
-## Accessibility
-
-The route-motion toggle and existing reduced-motion setting disable optional animated motion. Movement is illustrative, not real-time movement of aircraft or vessels.
+The flight and shipping networks remain schematic, not tracked traffic. Route kinks near Hawaii come from the illustrative sea-network waypoint geometry and are not verified navigation tracks.
