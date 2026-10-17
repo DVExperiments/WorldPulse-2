@@ -1,35 +1,27 @@
-# WorldPulse 2.0C.3 — Geographic News Intelligence
+# WorldPulse 2.0B.4 — True Population Density Field
 
-**Complete, static GitHub Pages site** built on 2.0C.2. This release adds a news layer to the working open-mesh globe, preserving the population accuracy work, directional flight-route pulses and schematic shipping corridors.
+This complete GitHub Pages-ready upgrade builds on **2.0B.3** and **preserves its distinct city-light blinking, open 3D mesh, thin borders and motion settings**.
 
-## What is new
+## What's improved
 
-- Loads **real mapped news snapshots** in the original WorldPulse `data/news.json` structure (`points`, `category`, `lat`, `lng`, `count`, `articles`, etc.). Does not invent stories or locations.
-- Tries `https://dvexperiments.github.io/WorldPulse/data/news.json` first. If that request fails, tries an optional local `data/news.json`. The original WorldPulse collector and workflow remain untouched.
-- Draws clickable **GPU-rendered coloured news lights**, replacing large cylinders. Categories have their original colour identities.
-- Zoom-dependent grouping: 8° cells far out, 4.5° at moderate globe distances, 2° close, individual signals at the closest zoom. Groups never cross category boundaries.
-- Category filters, news layer toggle, article details panel with source links, manual refresh and automated 15-minute checks.
-- Shows the snapshot's reported freshness/status and article sample count. No claim of verified real-time reporting.
-- Missing feed is visibly reported without breaking the globe. No placeholder news is manufactured.
+- The measured population raster controls **whether a point exists**, **its brightness**, and **how many additional lights appear in its immediate area**.
+- Highly populated locations can support more, slightly larger and brighter points; very low-population areas lose most of their points.
+- Maintains GPU shader-based independent blinking; all visual points remain anchored to the Earth.
+- Preserves reduced-motion and layer toggles.
+- Correctly labels fallback geographic points as a preview, **not** population data.
+
+## REQUIRED for measured density
+
+Copy the measured raster **`assets/population-density.png`** from your original WorldPulse repo into the same path in `WorldPulse-2`. **This ZIP does not include that raster.** Without it, there is no scientific basis for portraying dot presence as population density, and the site will display an explicitly labeled land-point preview.
+
+The raster encodes relative intensity, not raw people per square kilometre. The renderer therefore displays a *relative* settlement illumination field, not an exact population count or equal-area density estimation. Visual density is additionally influenced by the map projection and viewing angle.
 
 ## Install
 
-1. Extract the ZIP and upload **the contents of `WorldPulse_2.0C.3/`**, not the folder itself, directly into the `WorldPulse-2` GitHub repository root. `index.html` must be at the root.
-2. Replace matching existing files, but **keep** `assets/population-density.png` and `assets/population-density-info.json` if already uploaded.
-3. Commit, allow GitHub Pages to publish, then hard-refresh.
-4. Look for the **NEWS INTELLIGENCE / MAPPED FEED** section. When the feed is accessible you should see counts and coloured clickable lights. Click a news light to open its underlying article links.
+Extract the ZIP and upload **all included files and folders** to the root of the `WorldPulse-2` GitHub repository, replacing matching files. Do not delete a previously uploaded `assets/population-density.png`.
 
-### If the news feed does not load
+Hard-refresh after GitHub Pages deploys. Check that the panel under Population lights reads **“Measured density light field”**. Compare India, eastern China, Japan or western Europe against the Sahara and interior Australia.
 
-WorldPulse-2 uses a *read-only request* to your original site's `data/news.json`. If the original site is unavailable, blocks cross-origin requests, or no current feed exists, the app shows **News feed unavailable**. You can alternatively copy the original repository's current `data/news.json` into `WorldPulse-2/data/news.json`. That fallback is a **static snapshot**: it will not refresh automatically unless you separately maintain it.
+## Safety and data transparency
 
-No news collector or GitHub Action has been copied or modified by this build. The original site must keep running to provide automatic updates.
-
-## Interpretation and limitations
-
-- News marker count is based on mapped feed records and their **deduplicated sampled article counts**, not all reporting worldwide.
-- A signal may represent a broad country- or region-level topic, **not the exact event location**. The selected marker reports broad accuracy when provided in the original feed.
-- Spatial grouping is a cartographic representation, not evidence that individual news stories share an event.
-- Flights and sea routes remain **schematic**, not live tracking or authoritative navigational data.
-- Population raster remains a historical **relative settlement-density** map rather than live population counts.
-- News source access has been checked for schema compatibility, but its external availability could not be verified from this offline build environment. Please test on the published GitHub Pages site.
+Population glints are artistic ambience, not real-time settlement activity. Motion controls and reduced-motion support remain available. News, flight routes and shipping routes have not yet been added.
