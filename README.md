@@ -1,32 +1,28 @@
-# WorldPulse 2.0B.1 — Clean Geographic Grid
+# WorldPulse 2.0B.2 — Population Grid and Border Refinement
 
-A focused refinement of the working 2.0B Three.js open-mesh prototype.
+This full GitHub Pages replacement builds on **2.0B.1**, preserving the open mesh, no solid visible globe, no atmosphere/halo, and sparse 20-degree lat/long lines.
 
-## What changed
+## Fixes
+- **Flicker actually responds to its toggle.** Shader updates were previously only set when the population layer first loaded. Now enabling/disabling the checkbox changes the shader in real time. Independent smoothly interpolated noise with a stronger brightness range is used; no synchronized pulse or sharp strobe flashes.
+- **Visibility across zoom.** GPU point sizes are clamped to remain small but perceptible over a greater camera distance range.
+- **Measured density restoration.** If `assets/population-density.png` is available, it now modulates both point brightness and dot presence, allowing dense areas to appear denser. This uses the raster from the **original WorldPulse project**; it is not bundled or falsely recreated.
+- **Borders are visibly finer.** Removed the duplicate scaled glow line, leaving a single bright cyan WebGL line.
 
-- Removed the opaque planet sphere material completely.
-- Removed the atmosphere/halo geometry and its toggle; no bubble effect.
-- Refined the independently switchable **Network wireframe** into a clean grid of meridians and parallels only, with all diagonal connections removed. Meridians and parallels are each 20° apart and significantly fainter than country borders.
-- Kept cyan population lights, neon country outlines, camera navigation, automatic rotation, reduced-motion handling and graphics settings.
-- Kept a **colorless depth-only sphere** strictly for occluding back-side geometry. It cannot be seen, and isn't a physical globe surface. This makes foreground borders and points readable instead of showing both sides through the planet.
-- Retained separate `news`, `air`, `sea` scene groups for real datasets later. Nothing is simulated as genuine traffic.
+## Essential step for measured population
+Your new `WorldPulse-2` repository currently appears to lack the original measured population raster, which is why the preview dots are arranged across land nearly uniformly. To fix this, in your ORIGINAL WorldPulse GitHub repository, open **assets/population-density.png**, click Download raw file, then upload it into the NEW WorldPulse-2 repository at **assets/population-density.png**. In GitHub you can create the `assets` folder if needed. Do not rename the PNG. This raster was previously generated from WorldPop data by the original project's separate workflow. Do not run or change any news collection workflow.
 
-## Install on GitHub Pages
+Until the PNG is present, the UI deliberately says **Land-point preview — not population data**. Population *appearance* cannot be fully corrected by shaders without population data.
 
-Upload the **contents** of this ZIP to the **root** of your separate `WorldPulse-2` repository, replacing files when prompted. `index.html`, `style.css`, `src/` and `data/` must be directly in the root; do not upload a parent folder instead. The existing WorldPulse site is not touched.
+## Installation
+Upload the extracted contents of this ZIP into the root of `WorldPulse-2`, replacing existing matching files. Include the `src`, `data` and `assets` folder structures. **Do not overwrite/delete your existing population raster when updating**. Wait for GitHub Pages to deploy, then press Ctrl+F5.
 
-Settings → Pages → Deploy from branch → `main` / `(root)`; after deployment, hard-refresh your page (`Ctrl+F5`).
+## Controls and accessibility
+The Ambient light variation toggle now works after loading. With reduced-motion enabled, animation is disabled. Soft brightness changes are not formally photosensitivity-tested; keep the switch off if sensitive to animated light.
 
-The static site runs from `index.html` with CDN-hosted Three.js; no local build step is required. The included `package.json` and `vite.config.js` support optional local development via `npm install` / `npm run dev` and compilation with `npm run build`.
+## Testing
+1. With the globe loaded, toggle Ambient light variation off/on while looking at a population-rich area.
+2. Verify the `Population lights` subtitle says **Measured population-weighted points** once the raster is installed.
+3. Zoom between global and regional views and check point visibility.
+4. Confirm country boundaries stay fine and bright, and there is no bubble/halo.
 
-## Important note about population points
-
-This starter uses land points as a geographic preview unless `assets/population-density.png` is supplied. The measured population raster is not bundled. Flight, shipping and news layers remain empty until sourced data is integrated.
-
-## Visual controls
-
-`Population lights`, `Country boundaries`, `Network wireframe`, `Ambient light variation`, `Slow automatic rotation`, `Reduce motion` and `Graphics quality` are independent.
-
-## Implementation detail
-
-The wireframe is true world-space THREE.LineSegments geometry, not a texture painted onto a sphere. The hidden depth mask preserves front-side visibility and depth, while adding **no visible shell, shading, or Fresnel halo**.
+No news, air or sea route data is fabricated in this foundation build.

@@ -1,7 +1,4 @@
-WorldPulse 2.0B.1 — Clean Geographic Grid
-
-Upload the CONTENTS of this ZIP to your existing WorldPulse-2 repository root, replacing older files. Preserve the folder hierarchy. Then wait for GitHub Pages to publish and hard-refresh (Ctrl+F5).
-
-Removes diagonal network lines, uses faint 20-degree latitude/longitude lines; keeps the invisible depth mask, population lights, country borders, and NO atmosphere/visible sphere.
-
-No changes to the original WorldPulse news site.
+WorldPulse 2.0B.2 — Full GitHub Pages replacement.
+1. Upload extracted ZIP contents into WorldPulse-2 repo ROOT.
+2. Restore real population density: copy ORIGINAL WorldPulse assets/population-density.png into WorldPulse-2/assets/population-density.png.
+3. Wait for Pages deploy then hard refresh. See README.md.
