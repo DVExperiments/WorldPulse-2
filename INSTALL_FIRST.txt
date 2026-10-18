@@ -1,0 +1,1 @@
+Upload src/story-clusters.js and scripts/apply_f1_frontend.py into WorldPulse-2 repo. Run installer in Codespaces; it safely edits existing src/main.js. Optional: APPEND contents of cluster-styles.css to your existing style.css. Never replace it.
