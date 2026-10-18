@@ -10,7 +10,7 @@ export function renderStoryClusters(feed,list,enabledCategories){
   const details=document.createElement('details');details.className='story-cluster';
   const summary=document.createElement('summary');
   const title=document.createElement('strong');title.textContent=cluster.label||'Grouped reports';
-  const meta=document.createElement('small');meta.textContent=`${cluster.article_count} articles · ${cluster.publisher_count} publishers · ${cluster.location||'Mapped geographic subject'}`;
+  const meta=document.createElement('small');meta.textContent=`${cluster.article_count} distinct reports · ${cluster.publisher_count} publishers · ${cluster.location||'Mapped geographic subject'} · ${cluster.matching_rule==='shared_event_terms'?'Guarded event-term match':'Strong headline match'}`;
   summary.append(title,meta);details.append(summary);
   const ul=document.createElement('ul');
   for(const a of cluster.articles.slice(0,20)){
