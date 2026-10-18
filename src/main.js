@@ -90,9 +90,10 @@ function refreshGeoExplore(){
 // 2.2E.2: A modest, dismissible overlay on the stage, not a WebGL/camera change.
 // Numbers describe the current mapped RSS sample; no claims about event severity.
 const glance=document.createElement('aside');glance.id='wpGlance';glance.setAttribute('aria-label','News at a glance');
-glance.style.cssText='position:absolute;left:14px;bottom:68px;z-index:7;width:min(270px,calc(100% - 28px));max-height:42%;overflow:auto;border:1px solid #356376;border-radius:10px;padding:11px 13px;box-sizing:border-box;background:rgba(5,27,39,.92);color:#e2f7f6;box-shadow:0 10px 25px #0005;pointer-events:auto;font-size:11px';
+glance.style.cssText='display:none;position:absolute;left:14px;bottom:68px;z-index:7;width:min(270px,calc(100% - 28px));max-height:42%;overflow:auto;border:1px solid #356376;border-radius:10px;padding:11px 13px;box-sizing:border-box;background:rgba(5,27,39,.92);color:#e2f7f6;box-shadow:0 10px 25px #0005;pointer-events:auto;font-size:11px';
 glance.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="color:#7be2d9;letter-spacing:.09em;font-size:10px">NEWS AT A GLANCE</strong><button id="wpGlanceHide" aria-label="Hide news at a glance" type="button" style="border:1px solid #416579;border-radius:5px;background:#143746;color:#d7eff1;cursor:pointer;padding:3px 6px">×</button></div><div id="wpGlanceSummary" style="line-height:1.6;color:#a9c8d1;margin-top:7px">Waiting for mapped headlines…</div><div id="wpGlanceTopics" style="display:grid;gap:4px;margin-top:7px"></div><button id="wpGlanceExplore" type="button" style="margin-top:9px;border:1px solid #397b7d;border-radius:6px;background:#14505a;color:#e0fff9;cursor:pointer;padding:7px 9px;font:inherit">Explore a place ↗</button><div style="color:#88aab6;font-size:9px;line-height:1.4;margin-top:7px">RSS sample, not all world news or a measure of event importance.</div>`;
-const glanceToggle=document.createElement('button');glanceToggle.type='button';glanceToggle.textContent='◉ News at a glance';glanceToggle.setAttribute('aria-label','Show news at a glance');glanceToggle.style.cssText='display:none;position:absolute;left:14px;bottom:68px;z-index:7;border:1px solid #356376;border-radius:7px;padding:8px 10px;background:#092938;color:#9de5dd;cursor:pointer;pointer-events:auto;font-size:11px';
+const glanceToggle=document.createElement('button');glanceToggle.type='button';glanceToggle.textContent='◉ News at a glance';glanceToggle.setAttribute('aria-label','Show news at a glance');glanceToggle.style.cssText='display:block;position:absolute;left:14px;bottom:68px;z-index:7;border:1px solid #356376;border-radius:7px;padding:8px 10px;background:#092938;color:#9de5dd;cursor:pointer;pointer-events:auto;font-size:11px';
+glance.hidden=true; // Default to the unobstructed globe; visitors can open the summary on demand.
 const globeStage=$('stage');if(globeStage){globeStage.append(glance,glanceToggle);}
 $('wpGlanceHide').addEventListener('click',()=>{glance.hidden=true;glance.style.display='none';glanceToggle.style.display='block';});
 glanceToggle.addEventListener('click',()=>{glance.hidden=false;glance.style.display='block';glanceToggle.style.display='none';});
@@ -107,7 +108,7 @@ function renderAtGlance(){
  for(const [key,value] of [...categories].sort((a,b)=>b[1]-a[1]).slice(0,3)){
   const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:10px;color:#c2dce1';
   const label=document.createElement('span');label.textContent=geoCategoryName(key);
-  const amount=document.createElement('span');amount.textContent=value+' mentions';amount.style.cssText='color:#8ecbc9;white-space:nowrap';line.append(label,amount);topics.append(line);
+  const amount=document.createElement('span');amount.textContent=value+' sampled articles';amount.style.cssText='color:#8ecbc9;white-space:nowrap';line.append(label,amount);topics.append(line);
  }
  glanceSuggested=geoExploreCandidates[0]||null;
  $('wpGlanceExplore').disabled=!glanceSuggested;
