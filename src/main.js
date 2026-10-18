@@ -24,6 +24,29 @@ if(newsSwitch)newsSwitch.insertAdjacentElement('afterend',crossBorderLabel);
 else document.querySelector('.panel .section')?.append(crossBorderLabel);
 crossBorderToggle.addEventListener('change',()=>crossBorder.setVisible(crossBorderToggle.checked));
 let newsFeed=null,newsLastUpdated=0,newsPointerDown=null,selectedNews=null;
+let historicalObservation=null;
+const historicalBanner=document.createElement('div');
+historicalBanner.id='wp-historical-banner';historicalBanner.hidden=true;
+historicalBanner.style.cssText='position:absolute;z-index:4;left:50%;top:14px;transform:translateX(-50%);max-width:calc(100% - 24px);display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:10px 14px;background:#0a2b39ee;border:1px solid #e2b77a;border-radius:10px;color:#fff0d5;font:12px system-ui;box-shadow:0 8px 24px #0009';
+const historicalText=document.createElement('span');
+const liveButton=document.createElement('button');liveButton.type='button';liveButton.textContent='Return to Live';liveButton.style.cssText='padding:7px 11px;border-radius:6px;background:#185264;color:#eafff8;border:1px solid #69c2c0;cursor:pointer';
+historicalBanner.append(historicalText,liveButton);stage.append(historicalBanner);
+// Inline display:flex above must never override the hidden property.
+historicalBanner.style.display='none';
+function setHistoricalBanner(on,at){historicalBanner.hidden=!on;historicalBanner.style.display=on?'flex':'none';historicalText.textContent=on?'HISTORICAL OBSERVATION · '+new Date(at).toLocaleString()+' · sampled reporting, not verified event sites':'';}
+function restoreLive(){historicalObservation=null;setHistoricalBanner(false);if(newsFeed)news.setPoints(newsFeed.points);updateNews();window.dispatchEvent(new CustomEvent('worldpulse:historical-mode',{detail:{active:false}}));}
+liveButton.addEventListener('click',restoreLive);
+window.addEventListener('worldpulse:show-history',event=>{
+ const sample=event.detail?.snapshot;const at=sample?.at;
+ if(!sample||!Number.isFinite(Date.parse(at)))return;
+ const rows=Array.isArray(sample.locations)?sample.locations:[];
+ const points=rows.filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))&&Math.abs(Number(p.lat))<=90&&Math.abs(Number(p.lng))<=180&&Number(p.sampled_article_count)>0&&p.lat!==null&&p.lng!==null).map(p=>({lat:Number(p.lat),lng:Number(p.lng),name:String(p.name||'Geographic subject'),category:p.category,count:Number(p.sampled_article_count),accuracy:p.accuracy||'country',articles:[]}));
+ historicalObservation={at,points};news.setPoints(points);setHistoricalBanner(true,at);
+ // Unlike live news, archive points cannot open article lists from the live feed.
+ window.dispatchEvent(new CustomEvent('worldpulse:historical-mode',{detail:{active:true,at,count:points.length}}));
+});
+window.addEventListener('worldpulse:return-live',restoreLive);
+
 const safeText=v=>typeof v==='string'?v:'';
 const browseExtras=()=>Array.isArray(newsFeed?.meta?.unlocated_articles)?newsFeed.meta.unlocated_articles.filter(a=>typeof a.url==='string'&&/^https:\/\//i.test(a.url)&&a.location_status==='unverified'&&news.categories.has(a.category)):[];
 const readableDate=value=>{if(!value)return 'Unknown update time';const t=new Date(value);return isNaN(t.getTime())?'Unknown update time':t.toLocaleString();};
@@ -38,7 +61,7 @@ function makeFilterUI(){
 async function updateNews(){
  $('newsHint').textContent='Loading mapped headlines…';
  try{
-  const d=await fetchNews();newsFeed=d;news.setPoints(d.points);newsLastUpdated=Date.now();
+  const d=await fetchNews();newsFeed=d;if(!historicalObservation)news.setPoints(d.points);newsLastUpdated=Date.now();
    const crossCount=crossBorder.setLinks(d.meta?.cross_border || d.cross_border);
    crossBorderHint.textContent=crossCount?`${crossCount} headline-supported candidates · select an arc for sources`:'No qualifying bilateral headlines in this refresh';
    crossBorderToggle.disabled=!crossCount;
@@ -54,6 +77,7 @@ async function updateNews(){
  }
 }
 function showNews(p){
+ if(historicalObservation){$('newsDrawer').hidden=false;$('newsTitle').textContent=p.name||'Historical geographic subject';$('newsMeta').textContent='Archived sampled reporting · '+historicalObservation.at+' · no article links retained for these map points';$('newsStories').replaceChildren(document.createTextNode('Use Time Explorer to read the archived headline examples. These markers are geographic subjects, not verified event sites.'));return;}
  selectedNews=p;
  settings.rotate=false;$('rotationToggle').checked=false;
  $('newsDrawer').hidden=false;$('newsTitle').textContent=p.name||'Geographic news signals';
