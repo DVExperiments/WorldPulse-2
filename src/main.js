@@ -617,8 +617,48 @@ async function changeRoutes(){
  }catch(e){console.warn('WorldPulse connections:',e);$('airHint').textContent='Route dataset unavailable';$('seaHint').textContent='Route dataset unavailable';}
 }
 function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>{if(!v)closeMarkerPreview();news.setVisible(v);if(historicalObservation)layers.news.visible=false;historicalDots.visible=v;});bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
+// v2.4A.1 — Rotation access on the globe and via Space (outside editing controls).
+// Keep the existing sidebar setting authoritative; do not alter camera or renderer.
+const rotationQuick=document.createElement('button');
+rotationQuick.type='button';rotationQuick.id='wpRotationQuick';
+rotationQuick.style.cssText='position:absolute;top:14px;left:14px;z-index:7;display:flex;align-items:center;gap:8px;padding:9px 12px;min-height:40px;border:1px solid #356376;border-radius:8px;background:rgba(7,31,44,.91);color:#d4f6f0;font:600 12px system-ui,sans-serif;cursor:pointer;pointer-events:auto;box-shadow:0 4px 14px #0005';
+rotationQuick.setAttribute('aria-keyshortcuts','Space');
+rotationQuick.title='Pause or resume globe rotation (Spacebar)';
+stage.append(rotationQuick);
+let rotationQuickPrevious=null;
+function syncRotationQuick(){
+ const active=settings.rotate&&!settings.reduce;
+ if(rotationQuickPrevious===active)return;
+ rotationQuickPrevious=active;
+ rotationQuick.textContent=active?'Ⅱ Pause rotation':'▶ Resume rotation';
+ rotationQuick.setAttribute('aria-label',active?'Pause globe rotation':'Resume globe rotation');
+ rotationQuick.setAttribute('aria-pressed',String(!active));
+}
+function toggleGlobeRotation(){
+ const next=!(settings.rotate&&!settings.reduce);
+ if(next&&settings.reduce){
+  settings.reduce=false;
+  $('motionToggle').checked=false;
+ }
+ settings.rotate=next;
+ $('rotationToggle').checked=next;
+ controls.autoRotate=next;
+ syncRotationQuick();
+}
+rotationQuick.addEventListener('click',toggleGlobeRotation);
+document.addEventListener('keydown',event=>{
+ if(event.code!=='Space'||event.repeat||event.altKey||event.ctrlKey||event.metaKey)return;
+ const target=event.target;
+ if(target?.isContentEditable||target?.closest?.('input,textarea,select,button,[role="button"],[contenteditable="true"],[role="dialog"],[aria-modal="true"]'))return;
+ if(event.defaultPrevented)return;
+ event.preventDefault();
+ toggleGlobeRotation();
+});
+$('rotationToggle').addEventListener('change',syncRotationQuick);
+$('motionToggle').addEventListener('change',syncRotationQuick);
+syncRotationQuick();
 $('homeBtn').addEventListener('click',()=>{geoFlight=null;controls.reset();fitGlobeView(true);});
-function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();if(previewPoint&&!news.active.includes(previewPoint))closeMarkerPreview();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
+function tick(now){requestAnimationFrame(tick);syncRotationQuick();const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();if(previewPoint&&!news.active.includes(previewPoint))closeMarkerPreview();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
 function clock(){const d=new Date();$('utc').textContent='UTC '+d.toISOString().slice(11,16);}clock();setInterval(clock,30000);
 // News is read from the original WorldPulse publisher feed; no synthetic headlines.
 setInterval(()=>{if(document.visibilityState==='visible')updateNews()},15*60*1000);
