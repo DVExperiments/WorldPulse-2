@@ -94,7 +94,11 @@ export function showCrossBorderDetails(link) {
   if (!drawer || !title || !meta || !stories) return;
   drawer.hidden = false;
   title.textContent = `${link.countries[0].name} ↔ ${link.countries[1].name}`;
-  meta.textContent = `${link.relationship || 'Bilateral'} · Headline-based relationship candidate · Not a verified event location or physical route`;
+  const label = typeof link.relationship_label === 'string' && link.relationship_label.trim()
+    ? link.relationship_label : (link.relationship || 'Bilateral reporting');
+  const explanation = typeof link.relationship_explanation === 'string' && link.relationship_explanation.trim()
+    ? link.relationship_explanation : 'The relationship is inferred from the headline; it is not independently verified.';
+  meta.textContent = `${label} · ${explanation} Country anchors are approximate; the arc is not a physical route.`;
   stories.replaceChildren();
   for (const article of link.articles.slice(0,MAX_ARTICLES)) {
     if (!safeUrl(article?.url)) continue;
