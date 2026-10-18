@@ -74,7 +74,7 @@ function showGeoMatches(){
   const fly=document.createElement('button');fly.type='button';fly.textContent='Fly to';fly.style.cssText='padding:6px 8px;border-radius:5px;background:#12505a;border:1px solid #338d8a;color:#dbfff5;font-size:11px';
   fly.addEventListener('click',()=>{flyToGeo(e);geoResults.style.display='none';geoInput.setAttribute('aria-expanded','false');});
   const view=document.createElement('button');view.type='button';view.textContent='News';view.style.cssText='padding:6px 8px;border-radius:5px;background:#153444;border:1px solid #376171;color:#e1f5f9;font-size:11px';
-  view.addEventListener('click',()=>{flyToGeo(e);showNews({...e.points[0],name:e.name,members:e.points});geoResults.style.display='none';geoInput.setAttribute('aria-expanded','false');});
+  view.addEventListener('click',()=>{flyToGeo(e);openPlaceNews(e);geoResults.style.display='none';geoInput.setAttribute('aria-expanded','false');});
   item.append(title,fly,view);geoResults.append(item);
  }
 }
@@ -167,7 +167,71 @@ async function updateNews(){
   $('newsStats').textContent='No news snapshot could be loaded. The globe, population and route layers remain available. Check the original WorldPulse news feed or upload a local data/news.json snapshot.';
  }
 }
+// 2.2B — Location News: an accessible, focused reading workspace.
+// Article URLs are deduplicated across category signals for this location.
+const placeStyle=document.createElement('style');
+placeStyle.textContent=`
+.wp-place[hidden]{display:none!important}.wp-place{position:fixed;inset:0;z-index:1100;background:rgba(2,12,20,.82);backdrop-filter:blur(9px);display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,35px)}
+.wp-place-dialog{display:flex;flex-direction:column;width:min(1040px,100%);max-height:95vh;min-height:0;overflow:hidden;border:1px solid #356775;border-radius:14px;background:#071c29;color:#e5f9fc;box-shadow:0 22px 85px #000b}
+.wp-place-head{padding:22px 25px 13px;border-bottom:1px solid #294653;display:flex;align-items:flex-start;gap:18px;justify-content:space-between}
+.wp-place-head h2{margin:5px 0 4px;font-size:clamp(22px,3vw,34px);line-height:1.15}.wp-place-head p{margin:0;color:#9dbbc6;font-size:12px;line-height:1.5}
+.wp-place-kicker{font-size:10px;letter-spacing:.18em;color:#71e4d5;font-weight:750}.wp-place-button{background:#123847;border:1px solid #376a79;border-radius:7px;color:#d5faf5;padding:9px 12px;cursor:pointer;font-size:12px}
+.wp-place-button:hover{background:#20505d}.wp-place-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;padding:14px 25px;border-bottom:1px solid #294653}
+.wp-place-toolbar label{display:grid;gap:6px;font-size:11px;color:#99bdc8;min-width:160px;flex:1}.wp-place-toolbar select{color:#e2fbf6;border:1px solid #386171;background:#0b2c3b;padding:9px 11px;border-radius:6px;width:100%;font-size:12px}
+.wp-place-content{overflow-y:auto;padding:18px 25px 25px;min-height:0;overscroll-behavior:contain}.wp-place-meta{font-size:11px;color:#a5c6ce;margin:0 0 16px;line-height:1.6}
+.wp-place-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;align-items:stretch}.wp-place-card{background:#0c2a39;border:1px solid #294a5a;border-radius:9px;padding:15px;min-width:0;display:flex;flex-direction:column;gap:9px}
+.wp-place-card strong{font-size:14px;line-height:1.43;color:#e9faff;overflow-wrap:anywhere}.wp-place-card small{font-size:11px;color:#9eb9c6;line-height:1.5}.wp-place-card a{font-size:12px;color:#91f0df;text-decoration:none;font-weight:650;margin-top:auto;align-self:flex-start}.wp-place-card a:hover{text-decoration:underline}.wp-place-empty{padding:25px 5px;color:#a4c2cd;font-size:13px}
+@media(max-width:700px){.wp-place{padding:6px;align-items:stretch}.wp-place-dialog{max-height:none;height:100%;border-radius:8px}.wp-place-head{padding:15px}.wp-place-toolbar{padding:12px 15px}.wp-place-content{padding:14px}.wp-place-list{grid-template-columns:minmax(0,1fr)}}`;
+document.head.append(placeStyle);
+const placeOverlay=document.createElement('div');placeOverlay.className='wp-place';placeOverlay.hidden=true;
+placeOverlay.innerHTML=`<section class="wp-place-dialog" role="dialog" aria-modal="true" aria-labelledby="wpPlaceName">
+ <header class="wp-place-head"><div><div class="wp-place-kicker">WORLDPULSE / LOCATION NEWS</div><h2 id="wpPlaceName"></h2><p id="wpPlaceSubtitle"></p></div><button id="wpPlaceClose" class="wp-place-button" type="button" aria-label="Close location news">Close ✕</button></header>
+ <div class="wp-place-toolbar"><label>Category<select id="wpPlaceCategory"></select></label><label>Publisher<select id="wpPlacePublisher"></select></label><label>Sort articles<select id="wpPlaceOrder"><option value="recent">Newest first</option><option value="oldest">Oldest first</option><option value="publisher">Publisher A–Z</option></select></label><button class="wp-place-button" id="wpPlaceFly" type="button">Fly to on globe ↗</button></div>
+ <div class="wp-place-content"><p class="wp-place-meta" id="wpPlaceCount" role="status"></p><div class="wp-place-list" id="wpPlaceArticles"></div></div></section>`;
+document.body.append(placeOverlay);
+let activePlace=null,placeReturnFocus=null;
+const placeDate=a=>Date.parse(a.published_at||a.date||'')||0;
+const placeEntries=e=>{
+ const byUrl=new Map();for(const point of e.points||[])for(const article of point.articles||[]){
+  if(typeof article.url!=='string'||!/^https?:\/\//i.test(article.url))continue;
+  if(!byUrl.has(article.url))byUrl.set(article.url,{...article,categories:new Set()});
+  byUrl.get(article.url).categories.add(point.category);
+ }return [...byUrl.values()];
+};
+function setPlaceOptions(select,labels,value){select.replaceChildren();for(const [key,name] of labels){const opt=document.createElement('option');opt.value=key;opt.textContent=name;select.append(opt);}select.value=value;}
+function renderPlaceNews(){
+ if(!activePlace)return;
+ const all=placeEntries(activePlace);const cat=$('wpPlaceCategory').value,pub=$('wpPlacePublisher').value;
+ const matches=all.filter(a=>(cat==='all'||a.categories.has(cat))&&(pub==='all'||(a.publisher||'Publisher unspecified')===pub));
+ const sort=$('wpPlaceOrder').value;
+ matches.sort((a,b)=>sort==='publisher'?(a.publisher||'').localeCompare(b.publisher||'')||placeDate(b)-placeDate(a):sort==='oldest'?placeDate(a)-placeDate(b):placeDate(b)-placeDate(a));
+ $('wpPlaceCount').textContent=`Showing ${matches.length} of ${all.length} distinct linked article${all.length===1?'':'s'} · ${activePlace.points.length} geographic category signal${activePlace.points.length===1?'':'s'} · sampled RSS coverage, not all local news`;
+ const target=$('wpPlaceArticles');target.replaceChildren();
+ if(!matches.length){const msg=document.createElement('p');msg.className='wp-place-empty';msg.textContent='No linked articles match these filters. Try All categories or All publishers.';target.append(msg);return;}
+ for(const a of matches){const card=document.createElement('article');card.className='wp-place-card';const title=document.createElement('strong');title.textContent=a.title||'Untitled article';const desc=document.createElement('small');desc.textContent=[a.publisher||'Publisher unspecified',[...a.categories].map(c=>NEWS_LABELS[c]||c).join(' / '),placeDate(a)?new Date(placeDate(a)).toLocaleString():null].filter(Boolean).join(' · ');const link=document.createElement('a');link.href=a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Read original article ↗';card.append(title,desc,link);target.append(card);}
+}
+function openPlaceNews(e){
+ if(historicalObservation){geoStatus.textContent='Return to Live to browse current location articles.';return;}
+ activePlace=e;placeReturnFocus=document.activeElement;
+ $('wpPlaceName').textContent=e.name;
+ $('wpPlaceSubtitle').textContent=`${e.accuracy==='country'?'Country-level subject':e.accuracy==='region'?'Regional subject':'Mapped geographic subject'} · representative coordinates, not a verified incident location`;
+ const all=placeEntries(e);const cats=[...new Set(all.flatMap(a=>[...a.categories]))].sort();const pubs=[...new Set(all.map(a=>a.publisher||'Publisher unspecified'))].sort((a,b)=>a.localeCompare(b));
+ setPlaceOptions($('wpPlaceCategory'),[['all','All categories'],...cats.map(c=>[c,NEWS_LABELS[c]||c])],'all');
+ setPlaceOptions($('wpPlacePublisher'),[['all','All publishers'],...pubs.map(p=>[p,p])],'all');
+ $('wpPlaceOrder').value='recent';
+ placeOverlay.hidden=false;renderPlaceNews();$('wpPlaceClose').focus();
+}
+function closePlaceNews(){placeOverlay.hidden=true;activePlace=null;placeReturnFocus?.focus?.();}
+$('wpPlaceClose').addEventListener('click',closePlaceNews);
+placeOverlay.addEventListener('click',e=>{if(e.target===placeOverlay)closePlaceNews();});
+for(const id of ['wpPlaceCategory','wpPlacePublisher','wpPlaceOrder'])$(id).addEventListener('change',renderPlaceNews);
+$('wpPlaceFly').addEventListener('click',()=>{if(activePlace){flyToGeo(activePlace);closePlaceNews();}});
+document.addEventListener('keydown',e=>{if(placeOverlay.hidden)return;if(e.key==='Escape'){e.stopPropagation();closePlaceNews();}else if(e.key==='Tab'){
+ const focusables=[...placeOverlay.querySelectorAll('button:not([disabled]),select:not([disabled]),a[href]')];const first=focusables[0],last=focusables.at(-1);
+ if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+}});
 function showNews(p){
+ if(!historicalObservation && p?.name){const entry=geoEntries.find(e=>e.name.toLocaleLowerCase()===String(p.name).toLocaleLowerCase());if(entry){openPlaceNews(entry);return;}}
  if(historicalObservation){$('newsDrawer').hidden=false;$('newsTitle').textContent=p.name||'Historical geographic subject';$('newsMeta').textContent='Archived sampled reporting · '+historicalObservation.at+' · no article links retained for these map points';$('newsStories').replaceChildren(document.createTextNode('Use Time Explorer to read the archived headline examples. These markers are geographic subjects, not verified event sites.'));return;}
  selectedNews=p;
  settings.rotate=false;$('rotationToggle').checked=false;
