@@ -5,6 +5,7 @@ import {loadConnections} from './routes.js';
 import {NewsLayer,fetchNews,NEWS_COLORS,NEWS_LABELS} from './news.js';
 import {CrossBorderGlobe,showCrossBorderDetails} from './cross-border-globe.js';
 import {llToXYZ} from './geo.js';
+import {createOceanCurrents} from './ocean.js';
 const $=id=>document.getElementById(id);const stage=$('globe'),status=$('status'),error=$('error');const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
 const settings={rotate:!prefersReduced.matches,reduce:prefersReduced.matches,flicker:!prefersReduced.matches,quality:'auto',routesMotion:!prefersReduced.matches};
 const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(40,1,.1,70);camera.position.set(0,0,3.55);const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.outputColorSpace=THREE.SRGBColorSpace;stage.appendChild(renderer.domElement);
@@ -12,6 +13,22 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 const layers={earth:earthLayer(),mesh:meshLayer(),borders:null,population:null,...emptyRouteLayers()};globe.add(layers.earth,layers.mesh,layers.news,layers.air,layers.sea);
 let pop=null,features=[],frame=0,last=performance.now();
 const news=new NewsLayer(layers.news,camera,renderer.domElement);
+// v2.4C.1: optional illustrative ocean currents, separate from news and routes.
+const oceanCurrents=createOceanCurrents();
+globe.add(oceanCurrents);
+const oceanToggle=document.createElement('input');
+oceanToggle.type='checkbox';oceanToggle.id='oceanCurrentsToggle';oceanToggle.checked=true;
+oceanToggle.setAttribute('aria-label','Show illustrative ocean currents');
+const oceanLabel=document.createElement('label');oceanLabel.className='switch';
+const oceanCaption=document.createElement('span');
+oceanCaption.innerHTML='<i class="glyph" style="color:#54c7dd">≈</i> Ocean currents';
+const oceanHint=document.createElement('small');
+oceanHint.textContent='Subtle illustrative circulation · not live ocean data';
+oceanCaption.append(oceanHint);oceanLabel.append(oceanCaption,oceanToggle);
+const meshSwitch=document.getElementById('meshToggle')?.closest('label');
+if(meshSwitch)meshSwitch.insertAdjacentElement('afterend',oceanLabel);
+else document.querySelector('.panel .section')?.append(oceanLabel);
+oceanToggle.addEventListener('change',()=>{oceanCurrents.visible=oceanToggle.checked;});
 const crossBorder=new CrossBorderGlobe(globe);
 const crossBorderToggle=document.createElement('input');
 crossBorderToggle.type='checkbox';crossBorderToggle.id='crossBorderToggle';crossBorderToggle.setAttribute('aria-label','Show cross-border news connections');
@@ -658,7 +675,13 @@ $('rotationToggle').addEventListener('change',syncRotationQuick);
 $('motionToggle').addEventListener('change',syncRotationQuick);
 syncRotationQuick();
 $('homeBtn').addEventListener('click',()=>{geoFlight=null;controls.reset();fitGlobeView(true);});
-function tick(now){requestAnimationFrame(tick);syncRotationQuick();const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();if(previewPoint&&!news.active.includes(previewPoint))closeMarkerPreview();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
+function tick(now){requestAnimationFrame(tick);syncRotationQuick();const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();
+const oceanMaterial=oceanCurrents.userData.material;
+if(oceanMaterial){
+ oceanMaterial.uniforms.uMotion.value=settings.reduce?0:1;
+ if(document.visibilityState==='visible'&&!settings.reduce&&oceanCurrents.visible)oceanMaterial.uniforms.uTime.value+=dt;
+}
+if(previewPoint&&!news.active.includes(previewPoint))closeMarkerPreview();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
 function clock(){const d=new Date();$('utc').textContent='UTC '+d.toISOString().slice(11,16);}clock();setInterval(clock,30000);
 // News is read from the original WorldPulse publisher feed; no synthetic headlines.
 setInterval(()=>{if(document.visibilityState==='visible')updateNews()},15*60*1000);
