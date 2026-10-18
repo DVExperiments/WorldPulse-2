@@ -190,7 +190,7 @@ function fitGlobeView(resetZoom=true){
   controls.update();
  }
  camera.updateProjectionMatrix();
- renderer.setSize(w,h,false);
+ renderer.setSize(w,h,true); // Match CSS canvas dimensions to its pixel-ratio-scaled drawing buffer.
 }
 let previousStageWidth=0,previousStageHeight=0;
 function resize(){
