@@ -126,3 +126,90 @@ export function renderStoryClusters(feed,list,enabledCategories){
   }
   list.append(section);
 }
+
+// v2.0F.3.1 — Move discovery out of the narrow controls sidebar.
+// Keep existing #discovery / #story-explorer nodes: existing main.js listeners
+// and feed refreshes continue to operate with no modifications.
+function setupDiscoverWorkspace() {
+  const discovery=document.getElementById('discovery');
+  const explorer=document.querySelector('.news-section .story-explorer');
+  const sideSection=document.querySelector('.news-section');
+  if (!discovery || !explorer || !sideSection || document.getElementById('wp-discover-launch')) return;
+  const styles=el('style');styles.id='wp-discover-workspace-styles';
+  styles.textContent=`
+.wp-discover-launch{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:14px 15px;margin:13px 0 17px;border:1px solid #3b8290;border-radius:10px;background:linear-gradient(105deg,#113944,#0a2d3b);color:#dffffa;font:inherit;font-size:13px;font-weight:700;letter-spacing:.025em;cursor:pointer;text-align:left}
+.wp-discover-launch:hover,.wp-discover-launch:focus-visible{border-color:#6ef2df;background:#174954;outline-offset:3px}
+.wp-discover-launch small{display:block;font-size:10px;font-weight:400;color:#a1c6cc;margin-top:3px}
+.wp-discover-launch .wp-launch-arrow{font-size:22px;font-weight:400;color:#74eadb}
+.wp-discover-modal[hidden]{display:none!important}
+.wp-discover-modal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:clamp(10px,2.5vw,34px);background:rgba(1,9,18,.78);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.wp-discover-dialog{width:min(1200px,100%);height:min(830px,94dvh);min-height:0;background:linear-gradient(135deg,#0d2836,#071b27 65%);border:1px solid #326477;box-shadow:0 24px 100px rgba(0,0,0,.7);border-radius:17px;display:flex;flex-direction:column;overflow:hidden;color:#e8f9fa;font-family:inherit}
+.wp-discover-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:20px 25px 16px;border-bottom:1px solid #234756;flex:0 0 auto}
+.wp-discover-kicker{color:#76d9d1;letter-spacing:.17em;font-size:10px;font-weight:700}
+.wp-discover-top h2{font-size:clamp(20px,2.6vw,29px);line-height:1.1;margin:6px 0;color:#f2fcff}
+.wp-discover-top p{margin:5px 0 0;color:#a8c4ce;font-size:12px;line-height:1.5}
+.wp-discover-close{border:1px solid #37677a;background:#123646;border-radius:9px;color:#e8fbfb;width:38px;height:38px;cursor:pointer;font-size:20px;flex:0 0 auto}
+.wp-discover-close:hover,.wp-discover-close:focus-visible{border-color:#73e5da}
+.wp-discover-scroll{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:22px 25px 32px;flex:1}
+.wp-discover-scroll .discovery{border:0;background:transparent;margin:0;padding:0;min-width:0}
+.wp-discover-scroll .discovery>.section-name{display:none}
+.wp-discover-scroll .discover-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:15px 0}
+.wp-discover-scroll .discover-tabs button{font-size:12px;padding:10px 15px;flex:0 1 auto}
+.wp-discover-scroll .discover-explainer,.wp-discover-scroll .discover-caption{font-size:12px;max-width:75ch}
+.wp-discover-scroll .discover-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;max-height:none;overflow:visible;align-items:start}
+.wp-discover-scroll .discover-card{padding:17px;border-radius:10px;gap:9px;min-width:0}
+.wp-discover-scroll .discover-card strong{font-size:14px;line-height:1.45}
+.wp-discover-scroll .discover-card small{font-size:11px}
+.wp-discover-scroll .story-cluster-section{grid-column:1/-1;min-width:0}
+.wp-discover-scroll .story-cluster{padding:14px;border-radius:12px}
+.wp-discover-scroll .story-cluster summary{font-size:15px;line-height:1.5}
+.wp-discover-scroll .wp-f3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.wp-discover-scroll .wp-f3-card{padding:16px;gap:10px}
+.wp-discover-scroll .wp-f3-card a{font-size:14px;line-height:1.5}
+.wp-discover-scroll .wp-f3-tools{gap:14px;margin:15px 0}
+.wp-discover-scroll .wp-f3-tools label{font-size:12px;gap:9px}
+.wp-discover-scroll .wp-f3-tools select{max-width:260px;min-width:155px;font-size:12px;padding:9px}
+.wp-discover-search{margin:0 0 22px;padding:17px 18px;background:rgba(15,49,62,.65);border:1px solid #315463;border-radius:12px}
+.wp-discover-search .story-explorer{margin:0;padding:0;border:0;background:none}
+.wp-discover-search .story-explorer input{font-size:13px;padding:13px}
+.wp-discover-search .search-results{max-height:350px}
+.wp-discover-section-heading{color:#d3f5f4;font-size:12px;letter-spacing:.08em;font-weight:700;margin:0 0 12px}
+body.wp-discover-open{overflow:hidden}
+@media(max-width:730px){.wp-discover-modal{padding:0}.wp-discover-dialog{height:100dvh;width:100%;border:0;border-radius:0}.wp-discover-top{padding:16px}.wp-discover-scroll{padding:16px}.wp-discover-scroll .discover-list,.wp-discover-scroll .wp-f3-grid{grid-template-columns:minmax(0,1fr)}.wp-discover-scroll .wp-f3-tools{flex-direction:column;align-items:stretch}.wp-discover-scroll .wp-f3-tools label{justify-content:space-between}.wp-discover-scroll .wp-f3-tools select{max-width:none;flex:1;min-width:0}}
+@media(prefers-reduced-motion:reduce){.wp-discover-modal{backdrop-filter:none;-webkit-backdrop-filter:none}}
+`;
+  document.head.append(styles);
+  const launch=el('button','wp-discover-launch');launch.type='button';launch.id='wp-discover-launch';
+  const title=el('span');title.append(document.createTextNode('◈  Discover news'));
+  title.append(el('small',null,'Explore stories · Compare coverage'));
+  launch.append(title,el('span','wp-launch-arrow','↗'));
+  explorer.before(launch);
+  const modal=el('div','wp-discover-modal');modal.id='wp-discover-modal';modal.hidden=true;
+  const dialog=el('section','wp-discover-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','wp-discover-title');
+  const header=el('div','wp-discover-top');
+  const intro=el('div');intro.append(el('div','wp-discover-kicker','WORLDPULSE / DISCOVER'));
+  const h2=el('h2',null,'Explore the world's stories');h2.id='wp-discover-title';intro.append(h2,el('p',null,'Browse headlines, explore linked coverage, and compare how publishers report.'));
+  const close=el('button','wp-discover-close','×');close.type='button';close.setAttribute('aria-label','Close Discover');
+  header.append(intro,close);
+  const scroll=el('div','wp-discover-scroll');
+  const searchArea=el('div','wp-discover-search');searchArea.append(explorer);
+  scroll.append(searchArea,el('h3','wp-discover-section-heading','DISCOVER / CURRENT FEED'),discovery);
+  dialog.append(header,scroll);modal.append(dialog);document.body.append(modal);
+  let previousFocus=null;
+  function open(){previousFocus=document.activeElement;modal.hidden=false;document.body.classList.add('wp-discover-open');close.focus();}
+  function dismiss(){modal.hidden=true;document.body.classList.remove('wp-discover-open');if(previousFocus?.isConnected)previousFocus.focus();else launch.focus();}
+  launch.addEventListener('click',open);close.addEventListener('click',dismiss);
+  modal.addEventListener('click',e=>{if(e.target===modal)dismiss();});
+  modal.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();dismiss();return;}
+    if(e.key==='Tab'){
+      const controls=[...dialog.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(n=>n.getClientRects().length);
+      if(!controls.length)return;
+      const first=controls[0],last=controls[controls.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setupDiscoverWorkspace,{once:true});
+else setupDiscoverWorkspace();
