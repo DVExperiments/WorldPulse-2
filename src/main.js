@@ -181,32 +181,50 @@ placeStyle.textContent=`
 .wp-place-content{overflow-y:auto;padding:18px 25px 25px;min-height:0;overscroll-behavior:contain}.wp-place-meta{font-size:11px;color:#a5c6ce;margin:0 0 16px;line-height:1.6}
 .wp-place-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;align-items:stretch}.wp-place-card{background:#0c2a39;border:1px solid #294a5a;border-radius:9px;padding:15px;min-width:0;display:flex;flex-direction:column;gap:9px}
 .wp-place-card strong{font-size:14px;line-height:1.43;color:#e9faff;overflow-wrap:anywhere}.wp-place-card small{font-size:11px;color:#9eb9c6;line-height:1.5}.wp-place-card a{font-size:12px;color:#91f0df;text-decoration:none;font-weight:650;margin-top:auto;align-self:flex-start}.wp-place-card a:hover{text-decoration:underline}.wp-place-empty{padding:25px 5px;color:#a4c2cd;font-size:13px}
-.wp-place-view{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 25px 13px;border-bottom:1px solid #294653}.wp-place-view button[aria-pressed="true"]{background:#246879;border-color:#78cbd0;color:#fff}.wp-place-group{background:#0c2a39;border:1px solid #294a5a;border-radius:9px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:9px}.wp-place-group strong{font-size:14px;line-height:1.43}.wp-place-group small{font-size:11px;color:#9eb9c6;line-height:1.5}.wp-place-group details{margin-top:auto;border-top:1px solid #244653;padding-top:8px}.wp-place-group summary{cursor:pointer;color:#88e9d9;font-size:12px;font-weight:650}.wp-place-source{display:flex;gap:8px;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid #234452}.wp-place-source a{color:#91f0df;font-size:12px;overflow-wrap:anywhere}.wp-place-source small{white-space:nowrap}.wp-place-single-link{color:#91f0df;font-size:12px;font-weight:650;margin-top:auto}.wp-place-group-note{font-size:11px;color:#8eb5c3;line-height:1.5}
+.wp-place-view{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 25px 13px;border-bottom:1px solid #294653}.wp-place-view button[aria-pressed="true"]{background:#246879;border-color:#78cbd0;color:#fff}.wp-place-group{background:#0c2a39;border:1px solid #294a5a;border-radius:9px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:9px}.wp-place-group-featured{border-color:#3a7580;background:#103343}.wp-place-group strong{font-size:14px;line-height:1.43}.wp-place-group small{font-size:11px;color:#9eb9c6;line-height:1.5}.wp-place-group details{margin-top:auto;border-top:1px solid #244653;padding-top:8px}.wp-place-group summary{cursor:pointer;color:#88e9d9;font-size:12px;font-weight:650}.wp-place-source{display:flex;gap:8px;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid #234452}.wp-place-source a{color:#91f0df;font-size:12px;overflow-wrap:anywhere}.wp-place-source small{white-space:nowrap}.wp-place-single-link{color:#91f0df;font-size:12px;font-weight:650;margin-top:auto}.wp-place-group-note{font-size:11px;color:#8eb5c3;line-height:1.5}
 @media(max-width:700px){.wp-place{padding:6px;align-items:stretch}.wp-place-dialog{max-height:none;height:100%;border-radius:8px}.wp-place-head{padding:15px}.wp-place-toolbar{padding:12px 15px}.wp-place-content{padding:14px}.wp-place-list{grid-template-columns:minmax(0,1fr)}}`;
 document.head.append(placeStyle);
 const placeOverlay=document.createElement('div');placeOverlay.className='wp-place';placeOverlay.hidden=true;
 placeOverlay.innerHTML=`<section class="wp-place-dialog" role="dialog" aria-modal="true" aria-labelledby="wpPlaceName">
  <header class="wp-place-head"><div><div class="wp-place-kicker">WORLDPULSE / LOCATION NEWS</div><h2 id="wpPlaceName"></h2><p id="wpPlaceSubtitle"></p></div><button id="wpPlaceClose" class="wp-place-button" type="button" aria-label="Close location news">Close ✕</button></header>
  <div class="wp-place-toolbar"><label>Category<select id="wpPlaceCategory"></select></label><label>Publisher<select id="wpPlacePublisher"></select></label><label>Sort articles<select id="wpPlaceOrder"><option value="recent">Newest first</option><option value="oldest">Oldest first</option><option value="publisher">Publisher A–Z</option></select></label><button class="wp-place-button" id="wpPlaceFly" type="button">Fly to on globe ↗</button></div>
- <div class="wp-place-view" role="group" aria-label="Article display mode"><button class="wp-place-button" id="wpPlaceGrouped" aria-pressed="true" type="button">Grouped stories</button><button class="wp-place-button" id="wpPlaceFlat" aria-pressed="false" type="button">All articles</button><span class="wp-place-group-note">Headline-based suggestions · not verified events</span></div>
+ <div class="wp-place-view" role="group" aria-label="Article display mode"><button class="wp-place-button" id="wpPlaceGrouped" aria-pressed="true" type="button">Grouped stories</button><button class="wp-place-button" id="wpPlaceFlat" aria-pressed="false" type="button">All articles</button><span class="wp-place-group-note">Related coverage themes · not verified single events</span></div>
  <div class="wp-place-content"><p class="wp-place-meta" id="wpPlaceCount" role="status"></p><div class="wp-place-list" id="wpPlaceArticles"></div></div></section>`;
 document.body.append(placeOverlay);
 let activePlace=null,placeReturnFocus=null,placeDisplayMode='grouped';
-// Keep this heuristic deliberately conservative: identical places, similar broad topics,
-// or single shared keywords never establish the same event.
-const GROUP_STOP=new Set('a an and as at after before by for from in into is it its of on or over the to was were with amid across against about under new latest live news update updates report reports says say amid amid more how why what who when where france paris india china united states uk world europe country city people today yesterday'.split(' '));
+// v2.2D.2: Separate thematic coverage (not necessarily one event) from close-headline matches.
+// Small, explicit dictionary: avoid assigning stories to a theme on a single generic word.
+const GROUP_STOP=new Set('a an and as at after before by for from in into is it its of on or over the to was were with amid across against about under new latest live news update updates report reports says say more how why what who when where world country city people today yesterday'.split(' '));
 function headlineWords(title){return new Set(String(title||'').toLocaleLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').split(/\s+/).filter(w=>w.length>=4&&!GROUP_STOP.has(w)));}
 function sameHeadlineStory(a,b){
- const aa=headlineWords(a.title),bb=headlineWords(b.title);if(aa.size<4||bb.size<4)return false;
+ const aa=headlineWords(a.title),bb=headlineWords(b.title);if(aa.size<3||bb.size<3)return false;
  const common=[...aa].filter(w=>bb.has(w)).length;
- return common>=4 && common/Math.max(aa.size,bb.size)>=.54 && common/Math.min(aa.size,bb.size)>=.74;
+ return common>=3 && common/Math.min(aa.size,bb.size)>=.68 && common/Math.max(aa.size,bb.size)>=.36;
 }
+const PLACE_THEMES=[
+ ['Protests and public demonstrations',/\b(protest(?:s|ers|ing)?|demonstrat(?:ion|ions|ors|ors|ing)|unrest|riot(?:s|ing)?|mass march(?:es)?|student revolt)\b/i],
+ ['Elections and voting',/\b(election(?:s)?|referendum|ballot(?:s)?|voting|vote count|polling station)\b/i],
+ ['Storms and severe weather',/\b(hurricane|typhoon|cyclone|tornado|tropical storm)\b/i],
+ ['Earthquakes and seismic activity',/\b(earthquake(?:s)?|aftershock(?:s)?|seismic tremor(?:s)?)\b/i],
+ ['Wildfires and bushfires',/\b(wildfire(?:s)?|bushfire(?:s)?|forest fire(?:s)?)\b/i],
+ ['Flooding and flood response',/\b(flood(?:s|ing|waters)?|flash flood(?:s)?)\b/i],
+ ['Armed conflict and ceasefires',/\b(airstrike(?:s)?|ceasefire(?:s)?|missile strike(?:s)?|armed clashes|military offensive)\b/i],
+ ['Housing and accommodation',/\b(housing crisis|housing shortage|housing protest(?:s)?|rental crisis|rent increase(?:s)?|homelessness)\b/i]
+];
+function placeTheme(title){for(const [name,rx] of PLACE_THEMES)if(rx.test(title||''))return name;return null;}
 function makePlaceGroups(rows){
- // Compare to every member, not just a loose first headline; avoid transitive chains.
+ // A geographic place is already selected by the visitor; a theme is an editorial
+ // browsing aid, never a claim that its articles describe the same incident.
+ const themes=new Map();const leftovers=[];
+ for(const row of rows){const t=placeTheme(row.title);if(t){if(!themes.has(t))themes.set(t,[]);themes.get(t).push(row);}else leftovers.push(row);}
  const groups=[];
- for(const row of rows){let found=null;for(const g of groups){if(g.rows.every(other=>sameHeadlineStory(row,other))){found=g;break;}}
-  if(found)found.rows.push(row);else groups.push({rows:[row]});
+ for(const [name,articles] of themes){if(articles.length>=2)groups.push({rows:articles,label:name,type:'theme'});else leftovers.push(...articles);}
+ // Remaining articles may be grouped only when headline wording is close.
+ for(const row of leftovers){let found=null;for(const g of groups){if(g.type==='headline'&&g.rows.every(other=>sameHeadlineStory(row,other))){found=g;break;}}
+  if(found)found.rows.push(row);else groups.push({rows:[row],label:null,type:'headline'});
  }
+ // Sort by substantive coverage first, then the selected sort order within the theme.
+ groups.sort((a,b)=>(b.rows.length>1)-(a.rows.length>1)||b.rows.length-a.rows.length);
  return groups;
 }
 const placeDate=a=>Date.parse(a.published_at||a.date||'')||0;
@@ -234,10 +252,12 @@ function renderPlaceNews(){
   return;
  }
  const groups=makePlaceGroups(matches);
- $('wpPlaceCount').textContent=`${groups.length} conservative headline groups from ${matches.length} matching article${matches.length===1?'':'s'} · ${all.length} linked articles available · groupings are not verified events`;
- for(const g of groups){const lead=g.rows[0];const pubs=new Set(g.rows.map(a=>a.publisher||'Publisher unspecified'));const card=document.createElement('article');card.className='wp-place-group';const title=document.createElement('strong');title.textContent=lead.title||'Untitled article';const meta=document.createElement('small');meta.textContent=[...lead.categories].map(c=>NEWS_LABELS[c]||c).join(' / ')+' · '+g.rows.length+' article'+(g.rows.length===1?'':'s')+' · '+pubs.size+' publisher label'+(pubs.size===1?'':'s');card.append(title,meta);
+ const combined=groups.filter(g=>g.rows.length>1).length;
+ const covered=groups.filter(g=>g.rows.length>1).reduce((n,g)=>n+g.rows.length,0);
+ $('wpPlaceCount').textContent=combined?`${groups.length} coverage cards · ${covered} of ${matches.length} articles in ${combined} related-coverage group${combined===1?'':'s'} · topics are not verified single events`:`${matches.length} articles · no confident related-coverage groups in this selection · try All articles`;
+ for(const g of groups){const lead=g.rows[0];const pubs=new Set(g.rows.map(a=>a.publisher||'Publisher unspecified'));const card=document.createElement('article');card.className='wp-place-group';if(g.rows.length>1)card.classList.add('wp-place-group-featured');const title=document.createElement('strong');title.textContent=g.type==='theme'&&g.rows.length>1?`Related coverage: ${g.label}`:(lead.title||'Untitled article');const meta=document.createElement('small');meta.textContent=[...lead.categories].map(c=>NEWS_LABELS[c]||c).join(' / ')+' · '+g.rows.length+' article'+(g.rows.length===1?'':'s')+' · '+pubs.size+' publisher label'+(pubs.size===1?'':'s');card.append(title,meta);
   if(g.rows.length===1){const link=document.createElement('a');link.className='wp-place-single-link';link.href=lead.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Read original article ↗';card.append(link);}
-  else{const details=document.createElement('details');const sum=document.createElement('summary');sum.textContent=`Compare ${g.rows.length} linked articles · ${pubs.size} publisher labels`;details.append(sum);for(const a of g.rows){const item=document.createElement('div');item.className='wp-place-source';const link=document.createElement('a');link.href=a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=(a.publisher||'Publisher unspecified')+' — '+(a.title||'Read original');item.append(link);if(placeDate(a)){const time=document.createElement('small');time.textContent=new Date(placeDate(a)).toLocaleDateString();item.append(time);}details.append(item);}card.append(details);}
+  else{const expl=document.createElement('small');expl.textContent=g.type==='theme'?'Articles share a reporting theme; they may describe different events.':'Headlines have closely overlapping wording; independently verify the reporting.';card.append(expl);const details=document.createElement('details');const sum=document.createElement('summary');sum.textContent=`Explore ${g.rows.length} articles · ${pubs.size} publisher labels`;details.append(sum);for(const a of g.rows){const item=document.createElement('div');item.className='wp-place-source';const link=document.createElement('a');link.href=a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=(a.publisher||'Publisher unspecified')+' — '+(a.title||'Read original');item.append(link);if(placeDate(a)){const time=document.createElement('small');time.textContent=new Date(placeDate(a)).toLocaleDateString();item.append(time);}details.append(item);}card.append(details);}
   target.append(card);
  }
 }
