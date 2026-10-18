@@ -25,6 +25,71 @@ if(newsSwitch)newsSwitch.insertAdjacentElement('afterend',crossBorderLabel);
 else document.querySelector('.panel .section')?.append(crossBorderLabel);
 crossBorderToggle.addEventListener('change',()=>crossBorder.setVisible(crossBorderToggle.checked));
 let newsFeed=null,newsLastUpdated=0,newsPointerDown=null,selectedNews=null;
+// Geographic navigation is restricted to locations actually mapped in the RSS feed.
+// This avoids suggesting coverage for places with no verified mapped news subject.
+const geoNavSection=document.createElement('div');geoNavSection.className='section';
+geoNavSection.innerHTML=`<div class="section-name">FIND A PLACE <span class="muted">/ MAPPED NEWS</span></div>
+  <label for="geoNavSearch" style="display:block;color:#b7d5df;font-size:11px;line-height:1.5;margin-bottom:9px">Search mapped countries and cities</label>
+  <input id="geoNavSearch" type="search" autocomplete="off" placeholder="e.g. New Zealand, Paris…" aria-controls="geoNavResults" aria-expanded="false" style="width:100%;padding:11px;border:1px solid #386276;border-radius:7px;background:#061824;color:#e4fffa;font-size:12px;box-sizing:border-box">
+  <div id="geoNavResults" role="listbox" aria-label="Matching mapped locations" style="display:none;margin-top:7px;max-height:245px;overflow:auto;border:1px solid #284e5e;border-radius:8px;background:#092736"></div>
+  <p id="geoNavStatus" role="status" aria-live="polite" style="font-size:10px;color:#8fb0be;line-height:1.5;margin:9px 0 0">Loading mapped locations…</p>`;
+const panelHead=document.querySelector('.panel-head');
+if(panelHead)panelHead.insertAdjacentElement('afterend',geoNavSection);
+const geoInput=$('geoNavSearch'),geoResults=$('geoNavResults'),geoStatus=$('geoNavStatus');
+let geoEntries=[];let geoFlight=null;
+function buildGeoEntries(){
+ const entries=new Map();
+ for(const p of newsFeed?.points||[]){
+  if(!Number.isFinite(Number(p.lat))||!Number.isFinite(Number(p.lng))||!p.name)continue;
+  const key=String(p.name).trim().toLocaleLowerCase();if(!key)continue;
+  let e=entries.get(key);
+  if(!e){e={name:String(p.name).trim(),lat:Number(p.lat),lng:Number(p.lng),accuracy:p.accuracy||'place',points:[],count:0};entries.set(key,e);}
+  e.points.push(p);e.count+=Number(p.count)||0;
+ }
+ geoEntries=[...entries.values()].sort((a,b)=>a.name.localeCompare(b.name));
+ geoStatus.textContent=geoEntries.length+' mapped locations available · locations are news subjects, not verified event sites';
+ if(geoInput.value.trim())showGeoMatches();
+}
+function flyToGeo(e){
+ const start=camera.position.clone().normalize();const end=new THREE.Vector3(...llToXYZ(e.lat,e.lng,1)).normalize();
+ // Slerp unit vectors, with a stable midpoint for antipodal positions.
+ const q=new THREE.Quaternion().setFromUnitVectors(start,end);
+ geoFlight={start,rotation:q,started:performance.now(),duration:settings.reduce?0:1250,dist:camera.position.length(),place:e.name};
+ settings.rotate=false;$('rotationToggle').checked=false;
+ controls.autoRotate=false;controls.target.set(0,0,0);
+ geoStatus.textContent='Flying to '+e.name+' · representative geographic location';
+}
+function showGeoMatches(){
+ const term=geoInput.value.trim().toLocaleLowerCase();geoResults.replaceChildren();
+ geoInput.setAttribute('aria-expanded',term?'true':'false');
+ if(!term){geoResults.style.display='none';return;}
+ const matches=geoEntries.filter(e=>e.name.toLocaleLowerCase().includes(term)).sort((a,b)=>(a.name.toLocaleLowerCase().startsWith(term)?-1:0)-(b.name.toLocaleLowerCase().startsWith(term)?-1:0)||a.name.localeCompare(b.name)).slice(0,12);
+ geoResults.style.display='block';
+ if(!matches.length){const msg=document.createElement('p');msg.textContent='No mapped news location matches. Try a broader name.';msg.style.cssText='padding:9px;color:#aac9d4;font-size:11px';geoResults.append(msg);return;}
+ for(const e of matches){
+  const item=document.createElement('div');item.setAttribute('role','option');item.style.cssText='padding:9px;border-bottom:1px solid #224452;display:flex;flex-wrap:wrap;align-items:center;gap:6px';
+  const title=document.createElement('div');title.style.cssText='flex:1;min-width:115px';
+  const strong=document.createElement('strong');strong.textContent=e.name;strong.style.cssText='font-size:12px;color:#e2faf5;display:block';
+  const small=document.createElement('small');small.textContent=e.points.length+' category signal(s) · '+e.accuracy;small.style.cssText='font-size:10px;color:#8facbc';title.append(strong,small);
+  const fly=document.createElement('button');fly.type='button';fly.textContent='Fly to';fly.style.cssText='padding:6px 8px;border-radius:5px;background:#12505a;border:1px solid #338d8a;color:#dbfff5;font-size:11px';
+  fly.addEventListener('click',()=>{flyToGeo(e);geoResults.style.display='none';geoInput.setAttribute('aria-expanded','false');});
+  const view=document.createElement('button');view.type='button';view.textContent='News';view.style.cssText='padding:6px 8px;border-radius:5px;background:#153444;border:1px solid #376171;color:#e1f5f9;font-size:11px';
+  view.addEventListener('click',()=>{flyToGeo(e);showNews({...e.points[0],name:e.name,members:e.points});geoResults.style.display='none';geoInput.setAttribute('aria-expanded','false');});
+  item.append(title,fly,view);geoResults.append(item);
+ }
+}
+geoInput.addEventListener('input',showGeoMatches);
+geoInput.addEventListener('keydown',e=>{if(e.key==='Escape'){geoInput.value='';showGeoMatches();}else if(e.key==='Enter'){const first=geoEntries.find(x=>x.name.toLocaleLowerCase()===geoInput.value.trim().toLocaleLowerCase())||geoEntries.find(x=>x.name.toLocaleLowerCase().includes(geoInput.value.trim().toLocaleLowerCase()));if(first&&geoInput.value.trim()){flyToGeo(first);geoResults.style.display='none';}}});
+renderer.domElement.addEventListener('pointerdown',()=>{geoFlight=null;});
+function advanceGeoFlight(now){
+ if(!geoFlight)return;
+ const f=geoFlight,t=f.duration?Math.min(1,(now-f.started)/f.duration):1;
+ const eased=t*t*(3-2*t);const rotation=new THREE.Quaternion().identity().slerp(f.rotation,eased);
+ camera.position.copy(f.start).applyQuaternion(rotation).multiplyScalar(f.dist);
+ camera.lookAt(0,0,0);
+ if(t>=1)geoFlight=null;
+}
+
 let historicalObservation=null;
 // The compact 2.1A archive keeps at most 45 geographic location/category entries
 // per observation. It is NOT a full copy of the live geographic feed.
@@ -87,7 +152,7 @@ function makeFilterUI(){
 async function updateNews(){
  $('newsHint').textContent='Loading mapped headlines…';
  try{
-  const d=await fetchNews();newsFeed=d;if(!historicalObservation)news.setPoints(d.points);newsLastUpdated=Date.now();
+  const d=await fetchNews();newsFeed=d;buildGeoEntries();if(!historicalObservation)news.setPoints(d.points);newsLastUpdated=Date.now();
    const crossCount=crossBorder.setLinks(d.meta?.cross_border || d.cross_border);
    crossBorderHint.textContent=crossCount?`${crossCount} headline-supported candidates · select an arc for sources`:'No qualifying bilateral headlines in this refresh';
    crossBorderToggle.disabled=!crossCount;
@@ -293,8 +358,8 @@ async function changeRoutes(){
  }catch(e){console.warn('WorldPulse connections:',e);$('airHint').textContent='Route dataset unavailable';$('seaHint').textContent='Route dataset unavailable';}
 }
 function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>{news.setVisible(v);if(historicalObservation)layers.news.visible=false;historicalDots.visible=v;});bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
-$('homeBtn').addEventListener('click',()=>{controls.reset();fitGlobeView(true);});
-function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();news.update();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
+$('homeBtn').addEventListener('click',()=>{geoFlight=null;controls.reset();fitGlobeView(true);});
+function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
 function clock(){const d=new Date();$('utc').textContent='UTC '+d.toISOString().slice(11,16);}clock();setInterval(clock,30000);
 // News is read from the original WorldPulse publisher feed; no synthetic headlines.
 setInterval(()=>{if(document.visibilityState==='visible')updateNews()},15*60*1000);
