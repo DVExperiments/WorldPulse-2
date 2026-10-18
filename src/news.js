@@ -35,6 +35,25 @@ function cluster(points,cell){
   return {lat,lng:Math.atan2(sin,cos)*180/Math.PI,count,category:lead.category,name:`${m.length} nearby ${NEWS_LABELS[lead.category]} signals`,members:m,accuracy:'cluster'};
  });
 }
+// Freshness is based on the newest valid, linked article timestamp in a geographic
+// signal (or its nearby members). It does not measure severity or event urgency.
+// Unknown/invalid/future timestamps never activate the cue.
+export function recentReportingStrength(point,now=Date.now()){
+ const members=Array.isArray(point?.members)&&point.members.length?point.members:[point];
+ let latest=-Infinity;
+ for(const member of members){
+  const articles=Array.isArray(member?.articles)?member.articles:[];
+  for(const article of articles){
+   if(typeof article?.url!=='string'||!/^https:\/\//i.test(article.url))continue;
+   const stamp=Date.parse(article.published_at||'');
+   if(Number.isFinite(stamp)&&stamp<=now+5*60_000&&stamp>latest)latest=stamp;
+  }
+ }
+ if(!Number.isFinite(latest))return 0;
+ const age=Math.max(0,now-latest);
+ // 0–3 h: faint, intermittent shimmer; 3–6 h: fading; >6 h: steady.
+ return age>=6*3_600_000?0:age<=3*3_600_000?1: (6*3_600_000-age)/(3*3_600_000);
+}
 function markerTexture(){
  const c=document.createElement('canvas');c.width=c.height=64;
  const x=c.getContext('2d');const g=x.createRadialGradient(32,32,3,32,32,31);
@@ -42,7 +61,7 @@ function markerTexture(){
  x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);
 }
 export class NewsLayer{
- constructor(group,camera,dom){this.group=group;this.camera=camera;this.dom=dom;this.points=[];this.active=[];this.selected=null;this.enabled=true;this.categories=new Set(Object.keys(NEWS_COLORS));this.mode='balanced';this.lastTier=-1;this.texture=markerTexture();this.raycaster=new THREE.Raycaster();this.raycaster.params.Points.threshold=.017;this.mouse=new THREE.Vector2();this.geometry=null;this.markers=null;this.onSelect=null;this.onHover=null;this.hoveredIndex=-1;this._hoverMove=e=>this.hoverAt(e.clientX,e.clientY);this._hoverLeave=()=>this.clearHover();this.dom.addEventListener('pointermove',this._hoverMove,{passive:true});this.dom.addEventListener('pointerleave',this._hoverLeave);}
+ constructor(group,camera,dom){this.group=group;this.camera=camera;this.dom=dom;this.points=[];this.active=[];this.selected=null;this.enabled=true;this.categories=new Set(Object.keys(NEWS_COLORS));this.mode='balanced';this.lastTier=-1;this.texture=markerTexture();this.raycaster=new THREE.Raycaster();this.raycaster.params.Points.threshold=.017;this.mouse=new THREE.Vector2();this.geometry=null;this.markers=null;this.onSelect=null;this.onHover=null;this.hoveredIndex=-1;this.motionAllowed=!(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);this._hoverMove=e=>this.hoverAt(e.clientX,e.clientY);this._hoverLeave=()=>this.clearHover();this.dom.addEventListener('pointermove',this._hoverMove,{passive:true});this.dom.addEventListener('pointerleave',this._hoverLeave);}
  setPoints(points){this.points=points;this.rebuild(true);}
  setCategory(k,on){if(on)this.categories.add(k);else this.categories.delete(k);this.rebuild(true);}
  setVisible(show){this.enabled=show;this.group.visible=show;if(!show)this.clearHover();}
@@ -54,14 +73,21 @@ export class NewsLayer{
   // Balanced clusters only at distant overview; show mapped signals individually at usual zoom.
   return d>4.25?3.0:d>3.15?1.35:0;
  }
- update(){const tier=this.tier();if(tier!==this.lastTier)this.rebuild();}
+ update(){
+  const tier=this.tier();if(tier!==this.lastTier)this.rebuild();
+  if(this.markers){
+   const u=this.markers.material.uniforms;
+   u.uTime.value=performance.now()*0.001;
+   u.uMotion.value=this.motionAllowed&&document.visibilityState==='visible'?1:0;
+  }
+ }
  rebuild(force=false){
   const tier=this.tier();if(!force&&tier===this.lastTier)return;this.lastTier=tier;
   const included=this.points.filter(p=>this.categories.has(p.category));this.active=cluster(included,tier);
   if(this.markers){this.group.remove(this.markers);this.geometry.dispose();this.markers.material.dispose();this.markers=null;}
   if(!this.active.length)return;
   this.hoveredIndex=-1;
-  const positions=[],colors=[],sizes=[],indices=[];
+  const positions=[],colors=[],sizes=[],indices=[],freshness=[];
   for(const p of this.active){
    positions.push(...llToXYZ(p.lat,p.lng,1.027));
    const col=new THREE.Color(NEWS_COLORS[p.category]);colors.push(col.r,col.g,col.b);
@@ -71,10 +97,10 @@ export class NewsLayer{
    const tierSize=sampled<=2?0.43:sampled<=7?0.68:0.94;
    const clusterCue=p.members?.length>1?0.035:0;
    sizes.push(tierSize+clusterCue);
-   indices.push(sizes.length-1);
+   indices.push(sizes.length-1);freshness.push(recentReportingStrength(p));
   }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setAttribute('aSize',new THREE.Float32BufferAttribute(sizes,1));g.setAttribute('aIndex',new THREE.Float32BufferAttribute(indices,1));
-  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,vertexColors:true,uniforms:{uSprite:{value:this.texture},uViewport:{value:Math.min(2,window.devicePixelRatio||1)},uHover:{value:-1}},vertexShader:`attribute float aSize;attribute float aIndex;varying vec3 vCol;varying float vHover;uniform float uViewport;uniform float uHover;void main(){vCol=color;vHover=1.0-step(0.5,abs(aIndex-uHover));vec4 v=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*v;gl_PointSize=clamp((aSize+vHover*0.25)*21.0*uViewport/max(1.0,-v.z),2.2,15.5);}`,fragmentShader:`uniform sampler2D uSprite;varying vec3 vCol;varying float vHover;void main(){float a=texture2D(uSprite,gl_PointCoord).r;gl_FragColor=vec4(mix(vCol,vec3(1.0),vHover*0.32),a*(0.90+vHover*0.10));}`});
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setAttribute('aSize',new THREE.Float32BufferAttribute(sizes,1));g.setAttribute('aIndex',new THREE.Float32BufferAttribute(indices,1));g.setAttribute('aFresh',new THREE.Float32BufferAttribute(freshness,1));
+  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,vertexColors:true,uniforms:{uSprite:{value:this.texture},uViewport:{value:Math.min(2,window.devicePixelRatio||1)},uHover:{value:-1},uTime:{value:0},uMotion:{value:0}},vertexShader:`attribute float aSize;attribute float aIndex;attribute float aFresh;varying vec3 vCol;varying float vHover;varying float vFresh;uniform float uViewport;uniform float uHover;uniform float uTime;uniform float uMotion;void main(){vCol=color;vFresh=aFresh;vHover=1.0-step(0.5,abs(aIndex-uHover));float softPulse=0.5+0.5*sin(uTime*1.15+aIndex*2.39996);float shimmer=aFresh*uMotion*softPulse;vec4 v=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*v;gl_PointSize=clamp((aSize+vHover*0.25+shimmer*0.075)*21.0*uViewport/max(1.0,-v.z),2.2,15.5);}`,fragmentShader:`uniform sampler2D uSprite;uniform float uTime;uniform float uMotion;varying vec3 vCol;varying float vHover;varying float vFresh;void main(){float a=texture2D(uSprite,gl_PointCoord).r;float softPulse=0.5+0.5*sin(uTime*1.15+gl_FragCoord.x*0.011);float shimmer=vFresh*uMotion*softPulse;gl_FragColor=vec4(mix(vCol,vec3(1.0),vHover*0.32+shimmer*0.10),a*(0.90+vHover*0.10+shimmer*0.08));}`});
   const points=new THREE.Points(g,m);points.frustumCulled=false;this.group.add(points);this.markers=points;this.geometry=g;
  }
  // Hover changes only the shader highlight; no geometry rebuild or camera movement.
