@@ -1,114 +1,173 @@
 import * as THREE from 'three';
-import {llToXYZ} from './geo.js';
+import {llToXYZ,featureBBoxes,landAt} from './geo.js';
 
-// Broad illustrative circulation paths, not live or measured velocities.
-// The short strokes below sit directly on the sphere (r=1.013), unlike route
-// arches, and are grouped into narrow offshore bands for a flow-field effect.
-const PATHS = [
- {name:'North Atlantic gyre',pts:[[13,-55],[21,-67],[29,-75],[36,-66],[41,-48],[45,-31],[39,-18],[30,-20],[21,-34],[13,-55]]},
- {name:'North Atlantic drift',pts:[[35,-70],[41,-55],[47,-39],[54,-24],[59,-15]]},
- {name:'Labrador',pts:[[62,-54],[55,-50],[48,-48],[43,-51]]},
- {name:'South Atlantic gyre',pts:[[-10,-27],[-20,-35],[-30,-39],[-38,-30],[-34,-13],[-24,1],[-14,-2],[-10,-27]]},
- {name:'North Pacific gyre',pts:[[20,125],[27,133],[37,145],[41,164],[41,-174],[39,-155],[34,-139],[27,-130],[20,-149],[17,172],[20,125]]},
- {name:'Kuroshio',pts:[[19,126],[28,132],[36,142],[40,159],[41,177]]},
- {name:'South Pacific gyre',pts:[[-12,-88],[-20,-96],[-30,-117],[-35,-142],[-32,-165],[-25,175],[-18,169],[-13,-169],[-12,-126],[-12,-88]]},
- {name:'Humboldt',pts:[[-41,-79],[-31,-77],[-21,-75],[-11,-79],[-5,-86]]},
- {name:'East Australia',pts:[[-16,155],[-24,158],[-32,160],[-39,162]]},
- {name:'Indian Ocean gyre',pts:[[-13,59],[-21,65],[-30,78],[-34,94],[-29,105],[-20,110],[-13,91],[-13,59]]},
- {name:'Agulhas',pts:[[-22,38],[-29,36],[-36,30],[-40,28]]},
- {name:'Pacific equatorial',pts:[[2,152],[2,174],[1,-165],[0,-142],[-1,-118]]},
- {name:'Atlantic equatorial',pts:[[4,-48],[3,-33],[3,-19],[2,-11]]},
- {name:'Indian equatorial',pts:[[0,49],[0,64],[-1,79],[-1,93]]},
- {name:'Southern Ocean',pts:[[-55,-177],[-55,-149],[-56,-123],[-55,-94],[-55,-70],[-54,-47],[-55,-19],[-54,11],[-54,42],[-55,72],[-54,101],[-55,132],[-54,158],[-55,179]]}
-];
+// WorldPulse v2.4C.3 — illustrated ocean FLOW FIELD, not live velocity data.
+// Streamlets use a local tangent field on the unit sphere. They are not
+// geographically connecting arcs or routes. Coastline mask reuses existing
+// WorldPulse world-borders data. No raster/service/API dependencies.
 const RAD=Math.PI/180;
-const radius=1.013;
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function cart([lat,lon]){return new THREE.Vector3(...llToXYZ(lat,lon,1)).normalize();}
-function slerp(a,b,t){
- const angle=a.angleTo(b);
- if(angle<1e-7)return a.clone();
- const s=Math.sin(angle);
- return a.clone().multiplyScalar(Math.sin((1-t)*angle)/s).addScaledVector(b,Math.sin(t*angle)/s).normalize();
-}
-// Consistent surface interpolation, including dates crossing the date line.
-export function interpolateArc(a,b,t){return slerp(cart(a),cart(b),t);}
-const FRACT=x=>x-Math.floor(x);
-function hash(x){return FRACT(Math.sin(x*127.1+47.7)*43758.5453);}
-
-export function createOceanCurrents(){
- const group=new THREE.Group();
- group.name='WorldPulse illustrative surface ocean flow';
- const pos=[],phase=[],tone=[],weight=[];
- let strokes=0;
- for(let k=0;k<PATHS.length;k++){
-  const path=PATHS[k];
-  const points=[];
-  for(let s=1;s<path.pts.length;s++){
-   const a=cart(path.pts[s-1]),b=cart(path.pts[s]);
-   const arc=a.angleTo(b);
-   const steps=Math.max(2,Math.ceil(arc/RAD/.62));
-   for(let i=0;i<steps;i++)points.push(slerp(a,b,i/steps));
-  }
-  points.push(cart(path.pts[path.pts.length-1]));
-  // Multiple narrow nearby lanes create a surface flow band, not giant arcs.
-  // Side offsets are spherical tangent offsets, not displaced globe radii.
-  const lanes=k===14?5:4;
-  const total=points.length;
-  for(let lane=0;lane<lanes;lane++){
-   const lateral=(lane-(lanes-1)/2)*(.0053+(k===14?.0011:.0018));
-   const offset=hash(k*19.9+lane*4.2);
-   for(let i=0;i<total-1;i++){
-    // Only short separated strokes. Roughly 45% of each lane is dark gap.
-    if(((i+Math.floor(offset*7))%5)>2)continue;
-    const a=points[i],b=points[i+1];
-    const tangent=b.clone().sub(a).normalize();
-    const side=new THREE.Vector3().crossVectors(a,tangent).normalize();
-    const jitter=(hash(i*2.17+lane*19.1+k*3.9)-.5)*.0014;
-    const lateralJ=lateral+jitter;
-    const va=a.clone().addScaledVector(side,lateralJ).normalize().multiplyScalar(radius);
-    const vb=b.clone().addScaledVector(side,lateralJ).normalize().multiplyScalar(radius);
-    pos.push(...va.toArray(),...vb.toArray());
-    const p=(i/total+lane*.21+k*.07);
-    phase.push(p,p);
-    const shade=hash(k*17.1+lane*6.3+i*.31);
-    tone.push(shade,shade);
-    const w=(lane===0||lane===lanes-1?.6:1.0)*(k===14?.65:1);
-    weight.push(w,w);
-    strokes++;
-   }
-  }
+const RADIUS=1.014;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const fract=x=>x-Math.floor(x);
+const hash=x=>fract(Math.sin(x*127.1+38.17)*43758.5453123);
+const wrapLon=x=>((x+180)%360+360)%360-180;
+function position(lat,lon){return new THREE.Vector3(...llToXYZ(lat,lon,RADIUS));}
+function vector(lat,lon){
+ // Neighbouring gyres: broad basin circulation rather than isolated routes.
+ // Contributions fade outside a gyre's ocean basin.
+ const gyres=[
+  [32,-45,34,39,-1],[-26,-16,30,28,1],
+  [33,-160,53,35,-1],[-26,-124,46,28,1],
+  [-24,79,35,30,1]
+ ];
+ let east=0,north=0;
+ for(const [cy,cx,rx,ry,spin] of gyres){
+  const dx=wrapLon(lon-cx)*Math.cos(cy*RAD)/rx,dy=(lat-cy)/ry;
+  const r2=dx*dx+dy*dy;
+  const fall=Math.exp(-2.5*r2);
+  east+=(-dy)*spin*fall*1.7;
+  north+=dx*spin*fall*1.7;
  }
- const geometry=new THREE.BufferGeometry();
- geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
- geometry.setAttribute('aPhase',new THREE.Float32BufferAttribute(phase,1));
- geometry.setAttribute('aTone',new THREE.Float32BufferAttribute(tone,1));
- geometry.setAttribute('aWeight',new THREE.Float32BufferAttribute(weight,1));
- const uniforms={uTime:{value:0},uMotion:{value:1},uIntensity:{value:0.66}};
- const material=new THREE.ShaderMaterial({
+ // Equatorial trade-driven flow and southern circumpolar band.
+ const equator=Math.exp(-Math.pow(lat/11,2));
+ east-=.74*equator;
+ east+=.88*Math.exp(-Math.pow((lat+52)/9,2));
+ north+=.11*Math.sin(lon*RAD*3)*Math.exp(-Math.pow(lat/26,2));
+ // Subtle coherent local curvature; not random independent arrows.
+ const ripple=.16*Math.sin(lon*RAD*3.2+lat*RAD*3.7);
+ east+=ripple*Math.cos(lat*RAD*2);
+ north+=ripple*Math.sin(lon*RAD*1.4);
+ const magnitude=Math.hypot(east,north);
+ return magnitude>.09?{east:east/magnitude,north:north/magnitude,magnitude}:null;
+}
+function advect(lat,lon,distance,dir=1){
+ const v=vector(lat,lon);
+ if(!v)return null;
+ const nextLat=clamp(lat+v.north*distance*dir,-74,76);
+ const nextLon=wrapLon(lon+v.east*distance*dir/Math.max(.24,Math.cos(lat*RAD)));
+ return {lat:nextLat,lon:nextLon};
+}
+function oceanMask(features){
+ const boxes=featureBBoxes(features);
+ // Cache an approximate coastline check. An extra point-in-polygon test
+ // is made at each accepted stroke waypoint; never draw straight through land.
+ const cache=new Map();
+ return (lat,lon)=>{
+  if(Math.abs(lat)>75)return false;
+  const x=wrapLon(lon),key=`${Math.round(lat*2)}:${Math.round(x*2)}`;
+  let hit=cache.get(key);
+  if(hit===undefined){hit=!landAt(x,lat,boxes);cache.set(key,hit);}
+  return hit;
+ };
+}
+function makeMaterial(uniforms,points=false){
+ return new THREE.ShaderMaterial({
   uniforms,transparent:true,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
-  vertexShader:`
-   attribute float aPhase; attribute float aTone; attribute float aWeight;
-   varying float vPhase; varying float vTone; varying float vWeight;
+  vertexShader:points?`
+   attribute vec3 aTangent; attribute float aPhase; attribute float aSpeed;
+   varying float vPhase; uniform float uTime; uniform float uMotion;
    void main(){
-    vPhase=aPhase;vTone=aTone;vWeight=aWeight;
+    // A short looping travel along the local ocean surface tangent.
+    // No paths are stretched between distant cities or islands.
+    float travel=fract(aPhase+uTime*aSpeed*uMotion)*.024;
+    vec3 sphere=normalize(position+aTangent*(travel-.012))*1.015;
+    vec4 mv=modelViewMatrix*vec4(sphere,1.0);
+    gl_Position=projectionMatrix*mv;
+    gl_PointSize=clamp(2.6/max(.7,-mv.z)*2.5,1.2,3.9);
+    vPhase=aPhase;
+   }`:`
+   attribute float aTone; attribute float aPhase;
+   varying float vTone; varying float vPhase;
+   void main(){
+    vTone=aTone; vPhase=aPhase;
     gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
    }`,
-  fragmentShader:`
-   precision mediump float;
-   uniform float uTime;uniform float uMotion;uniform float uIntensity;
-   varying float vPhase;varying float vTone;varying float vWeight;
+  fragmentShader:points?`
+   uniform float uIntensity; varying float vPhase;
    void main(){
-    // A low-frequency travelling brightness wave, no flashing or hard pulses.
-    float traveling=.5+.5*cos(6.2831853*(vPhase*7.0-uTime*.08));
-    float brightness=mix(.74,.53+.47*traveling,uMotion);
-    float alpha=uIntensity*vWeight*(.16+.12*vTone)*brightness;
-    gl_FragColor=vec4(.20,.79,.83,alpha);
+    float d=length(gl_PointCoord-.5);
+    float a=1.-smoothstep(.12,.5,d);
+    gl_FragColor=vec4(.34,.95,.92,a*uIntensity*.62);
+   }`:`
+   uniform float uIntensity; uniform float uTime; uniform float uMotion;
+   varying float vTone; varying float vPhase;
+   void main(){
+    float breathe=.84+.16*sin(uTime*uMotion*.75+vPhase*6.28318);
+    float alpha=uIntensity*(.14+.22*vTone)*breathe;
+    gl_FragColor=vec4(.16,.72,.78,alpha);
    }`
  });
- const flow=new THREE.LineSegments(geometry,material);
- flow.frustumCulled=false;
- group.add(flow);
- group.userData={material,streamCount:PATHS.length,strokeCount:strokes,representation:'illustrative surface flow bands'};
+}
+function populate(group,features,uniforms){
+ const isOcean=oceanMask(features);
+ const linePositions=[],lineTones=[],linePhases=[];
+ const particlePositions=[],particleTangents=[],particlePhases=[],particleSpeeds=[];
+ let lines=0,particles=0;
+ // Distribution is approximately uniform in surface area, stable across loads.
+ // 2,700 tries yield a widely populated (but not opaque) ocean texture.
+ for(let i=0;i<3000;i++){
+  const lat=Math.asin(hash(i*5.13+6.1)*1.94-.97)/RAD;
+  const lon=-180+360*hash(i*9.71+11.3);
+  if(!isOcean(lat,lon))continue;
+  const v=vector(lat,lon);if(!v)continue;
+  const side=(hash(i*1.87+8.5)-.5)*1.3;
+  const length=.9+hash(i*7.3+2)*1.55;
+  const centerLat=lat+side*v.east;
+  const centerLon=lon-side*v.north/Math.max(.27,Math.cos(lat*RAD));
+  if(!isOcean(centerLat,centerLon))continue;
+  // 2-3 curved segments, total span typically 1-2 degrees; no long arcs.
+  const steps=hash(i*2.07+9)>.52?3:2;
+  let current=advect(centerLat,centerLon,length*.5,-1);
+  if(!current||!isOcean(current.lat,current.lon))continue;
+  const pts=[current];let valid=true;
+  for(let j=0;j<steps;j++){
+   current=advect(current.lat,current.lon,length/steps);
+   if(!current||!isOcean(current.lat,current.lon)){valid=false;break;}
+   pts.push(current);
+  }
+  if(!valid)continue;
+  const phase=hash(i*14.1+7);
+  const tone=.35+.65*hash(i*3.14+1);
+  for(let j=0;j<pts.length-1;j++){
+   linePositions.push(...position(pts[j].lat,pts[j].lon).toArray(),...position(pts[j+1].lat,pts[j+1].lon).toArray());
+   lineTones.push(tone,tone);
+   linePhases.push(phase,phase);
+   lines++;
+  }
+  if(hash(i*13.19+5)<.76){
+   const midpoint=pts[Math.floor(pts.length/2)];
+   const p=position(midpoint.lat,midpoint.lon);
+   // Two unit-sphere nearby positions form a tangent basis in 3D.
+   const toward=advect(midpoint.lat,midpoint.lon,.08);
+   if(!toward)continue;
+   const tangent=position(toward.lat,toward.lon).sub(p).normalize();
+   particlePositions.push(...p.toArray());particleTangents.push(...tangent.toArray());
+   particlePhases.push(phase);particleSpeeds.push(.15+.13*hash(i*3.31));
+   particles++;
+  }
+ }
+ const strokesGeo=new THREE.BufferGeometry();
+ strokesGeo.setAttribute('position',new THREE.Float32BufferAttribute(linePositions,3));
+ strokesGeo.setAttribute('aTone',new THREE.Float32BufferAttribute(lineTones,1));
+ strokesGeo.setAttribute('aPhase',new THREE.Float32BufferAttribute(linePhases,1));
+ const strokes=new THREE.LineSegments(strokesGeo,makeMaterial(uniforms));
+ strokes.frustumCulled=false;strokes.renderOrder=1;group.add(strokes);
+ const particleGeo=new THREE.BufferGeometry();
+ particleGeo.setAttribute('position',new THREE.Float32BufferAttribute(particlePositions,3));
+ particleGeo.setAttribute('aTangent',new THREE.Float32BufferAttribute(particleTangents,3));
+ particleGeo.setAttribute('aPhase',new THREE.Float32BufferAttribute(particlePhases,1));
+ particleGeo.setAttribute('aSpeed',new THREE.Float32BufferAttribute(particleSpeeds,1));
+ const dots=new THREE.Points(particleGeo,makeMaterial(uniforms,true));
+ dots.frustumCulled=false;dots.renderOrder=2;group.add(dots);
+ group.userData.strokeCount=lines;group.userData.particleCount=particles;
+}
+export function createOceanCurrents(){
+ const group=new THREE.Group();group.name='WorldPulse illustrative ocean flow field';
+ const uniforms={uTime:{value:0},uMotion:{value:1},uIntensity:{value:.72}};
+ // main.js reads this interface once every frame. Preserve it unchanged.
+ group.userData={material:{uniforms},representation:'illustrative ocean surface flow field',status:'loading'};
+ fetch('./data/world-borders.geojson').then(r=>{if(!r.ok)throw Error(`Geography ${r.status}`);return r.json();})
+  .then(data=>{populate(group,(data.features||[]).filter(f=>f?.geometry),uniforms);group.userData.status='ready';})
+  .catch(e=>{group.userData.status='unavailable';console.warn('WorldPulse ocean flow needs world geography:',e);});
  return group;
 }
