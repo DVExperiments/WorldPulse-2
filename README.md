@@ -1,47 +1,25 @@
-# WorldPulse 2.0D.2 — Worldwide Publisher Expansion (Collector Patch)
+# WorldPulse 2.0D.1 — Global Coverage & News Discovery (Phase 1)
 
-**Install into the ORIGINAL `DVExperiments/WorldPulse` repository, not `WorldPulse-2`.**
-The original collector produces `data/news.json` that the new site consumes.
+This is a **complete GitHub Pages frontend replacement** based on 2.0D. It preserves the working 3D globe, measured population raster support, route motion, original news feed, article drawer and search.
 
-## What this release actually provides
+## Added
+- Discover News panel with **Top**, **Latest**, **Most covered**, and **Around the world** views.
+- Publisher-link-based discovery; all headlines and links come from actual linked articles in the existing mapped feed.
+- Each discovery card can open the geographic news drawer or the original source link.
+- Source-limited explanations so users do not mistake *most covered* for social-media engagement or comprehensive worldwide importance.
+- A **separate local coverage audit script** (`coverage-tools/audit_news.py`) which produces a CSV of mapped locations, links and publishers. No existing news collector or GitHub workflow was modified.
 
-- 34 **candidate** additional regional and multilingual RSS/Atom feed URLs in `scripts/coverage_expansion.py`. They are **not claimed to be verified live**. Some may fail, redirect, block scraping, or have changed since listed.
-- A conservative stage of **8 candidate feeds enabled by default** where their URLs are not already present in the existing registry. The existing registry already includes some overlapping sources, so the number of genuinely new feeds may be smaller.
-- No changes to `scripts/update.py`, its geoparsing/deduplication logic, or `.github/workflows/update.yml`.
-- `scripts/audit_global_coverage.py`, a stdlib-only utility that produces country-name-mention and source-health reports after a collector run.
-- `scripts/preflight_candidates.py` to live-check URLs when GitHub Actions/network access is available.
-- An inventory of 173 country / territory names derived from the current WorldPulse 2 boundary map, intended for an **initial** coverage report, NOT an exhaustive list of all countries or territories.
+## Important limitation
+This is **Phase 1**, not completed global source expansion. The current `data/news.json` exposes mapped location groups and some linked sampled articles; without inspecting and expanding the original full Python source registry, this package cannot honestly claim to add publishers to underserved countries. A future collector update should verify feed availability, rights, geographic mapping and each country's reporting diversity before enabling additional sources.
 
-## Install (browser-only)
+## Installation
+Upload the contents of this folder (not the outer folder) to the **WorldPulse-2** GitHub repository root. Preserve `assets/population-density.png` and `assets/population-density-info.json`. Do not upload it to the original WorldPulse repository.
 
-1. Download/extract this ZIP.
-2. Go to the **original** `WorldPulse` GitHub repository.
-3. Upload `scripts/publisher_network.py` (replace existing), `scripts/coverage_expansion.py`, `scripts/audit_global_coverage.py`, `scripts/preflight_candidates.py`, `data/country-inventory.json`, and `tests/test_coverage_extension.py`, keeping their directory paths.
-4. **Do not remove anything else or alter the existing update workflow.**
-5. Commit and check the next scheduled collector run and `data/source-health.json`. If feeds fail, the collector should record their failures; revert this commit if collection becomes unreliable.
+The original WorldPulse RSS collector and `.github/workflows/update.yml` are unchanged. This frontend reads the original feed as before.
 
-**Compatibility prerequisite:** the currently deployed `scripts/update.py` must import `merge_feeds` from `publisher_network.py`. This was how the original v1.5.4B collector was configured. If your repository was changed afterward, check this before uploading. If that import is missing, the newly added feeds will not be used.
+## Run audit separately
+With a downloaded copy of the original `news.json`, run:
 
-## Generate the audit
+`python coverage-tools/audit_news.py news.json --out coverage-report.csv`
 
-In a GitHub Codespace or any Python environment from the original repo root:
-
-```bash
-python scripts/audit_global_coverage.py
-```
-
-This writes `data/coverage-audit.json` and `data/coverage-audit.csv` in your working copy. The audit does **not** run automatically in GitHub Actions; adding that later requires an intentional workflow change.
-
-The country-name counts are only a **partial lower bound** and exclude city- and region-labelled signals. A zero is NOT evidence of no news. Source region reports are about a feed's editorial focus, not the story's event location.
-
-To test candidate feeds using a network-enabled environment:
-
-```bash
-python scripts/preflight_candidates.py --limit 10
-```
-
-The check writes `data/feed-candidate-preflight.json`. Later, to opt into the full unverified candidate pool, set `WP_EXPAND_ALL_CANDIDATES=1` for the collector, but **only after** feed checks and runtime/performance assessment. Running all sources can lengthen scheduled jobs.
-
-## Next steps
-
-D.2 is an incremental first expansion and diagnostics foundation—not global coverage parity. Evaluate `source-health.json` and the audit, verify additional country-specific feeds, and prioritise countries with sparse confirmed reporting. Improve geographic country attribution (city + region + source are separate dimensions) before treating the audit as complete.
+This reports *mapped location names*, not inferred ISO countries or a full source registry. No new country coverage figures are claimed.
