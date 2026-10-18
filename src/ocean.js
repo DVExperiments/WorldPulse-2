@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {llToXYZ,featureBBoxes,landAt} from './geo.js';
 
-// WorldPulse v2.4C.3 — illustrated ocean FLOW FIELD, not live velocity data.
+// WorldPulse v2.4C.4 — refined illustrated ocean FLOW FIELD, not live velocity data.
 // Streamlets use a local tangent field on the unit sphere. They are not
 // geographically connecting arcs or routes. Coastline mask reuses existing
 // WorldPulse world-borders data. No raster/service/API dependencies.
@@ -34,7 +34,17 @@ function vector(lat,lon){
  east+=.88*Math.exp(-Math.pow((lat+52)/9,2));
  north+=.11*Math.sin(lon*RAD*3)*Math.exp(-Math.pow(lat/26,2));
  // Subtle coherent local curvature; not random independent arrows.
- const ripple=.16*Math.sin(lon*RAD*3.2+lat*RAD*3.7);
+ // Smaller, coherent sub-basin eddies softly bend surrounding flow.
+ // These are schematic circulation details, not observed currents.
+ const eddies=[[20,-137,12,1],[-33,-93,12,-1],[39,-54,9,-1],[-39,9,11,1],[12,96,11,-1]];
+ for(const [ey,ex,scale,spin] of eddies){
+  const dx=wrapLon(lon-ex)*Math.cos(ey*RAD)/scale;
+  const dy=(lat-ey)/scale;
+  const fall=Math.exp(-2.6*(dx*dx+dy*dy));
+  east+=-dy*spin*fall*.34;
+  north+=dx*spin*fall*.34;
+ }
+ const ripple=.12*Math.sin(lon*RAD*3.2+lat*RAD*3.7);
  east+=ripple*Math.cos(lat*RAD*2);
  north+=ripple*Math.sin(lon*RAD*1.4);
  const magnitude=Math.hypot(east,north);
@@ -64,8 +74,8 @@ function makeMaterial(uniforms,points=false){
  return new THREE.ShaderMaterial({
   uniforms,transparent:true,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
   vertexShader:points?`
-   attribute vec3 aTangent; attribute float aPhase; attribute float aSpeed;
-   varying float vPhase; uniform float uTime; uniform float uMotion;
+   attribute vec3 aTangent; attribute float aPhase; attribute float aSpeed; attribute float aTone;
+   varying float vPhase; varying float vTone; uniform float uTime; uniform float uMotion;
    void main(){
     // A short looping travel along the local ocean surface tangent.
     // No paths are stretched between distant cities or islands.
@@ -74,7 +84,7 @@ function makeMaterial(uniforms,points=false){
     vec4 mv=modelViewMatrix*vec4(sphere,1.0);
     gl_Position=projectionMatrix*mv;
     gl_PointSize=clamp(2.6/max(.7,-mv.z)*2.5,1.2,3.9);
-    vPhase=aPhase;
+    vPhase=aPhase; vTone=aTone;
    }`:`
    attribute float aTone; attribute float aPhase;
    varying float vTone; varying float vPhase;
@@ -83,40 +93,52 @@ function makeMaterial(uniforms,points=false){
     gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
    }`,
   fragmentShader:points?`
-   uniform float uIntensity; varying float vPhase;
+   uniform float uIntensity; varying float vPhase; varying float vTone;
    void main(){
     float d=length(gl_PointCoord-.5);
     float a=1.-smoothstep(.12,.5,d);
-    gl_FragColor=vec4(.34,.95,.92,a*uIntensity*.62);
+    gl_FragColor=vec4(.27,.88,.87,a*uIntensity*(.24+.34*vTone));
    }`:`
    uniform float uIntensity; uniform float uTime; uniform float uMotion;
    varying float vTone; varying float vPhase;
    void main(){
     float breathe=.84+.16*sin(uTime*uMotion*.75+vPhase*6.28318);
-    float alpha=uIntensity*(.14+.22*vTone)*breathe;
-    gl_FragColor=vec4(.16,.72,.78,alpha);
+    // A deliberately quiet hierarchy keeps news markers the visual priority.
+    float alpha=uIntensity*(.10+.24*vTone)*breathe;
+    vec3 tint=mix(vec3(.10,.54,.65),vec3(.23,.80,.78),vTone);
+    gl_FragColor=vec4(tint,alpha);
    }`
  });
 }
 function populate(group,features,uniforms){
  const isOcean=oceanMask(features);
  const linePositions=[],lineTones=[],linePhases=[];
- const particlePositions=[],particleTangents=[],particlePhases=[],particleSpeeds=[];
+ const particlePositions=[],particleTangents=[],particlePhases=[],particleSpeeds=[],particleTones=[];
  let lines=0,particles=0;
  // Distribution is approximately uniform in surface area, stable across loads.
  // 2,700 tries yield a widely populated (but not opaque) ocean texture.
- for(let i=0;i<3000;i++){
+ for(let i=0;i<2740;i++){
   const lat=Math.asin(hash(i*5.13+6.1)*1.94-.97)/RAD;
   const lon=-180+360*hash(i*9.71+11.3);
   if(!isOcean(lat,lon))continue;
   const v=vector(lat,lon);if(!v)continue;
-  const side=(hash(i*1.87+8.5)-.5)*1.3;
-  const length=.9+hash(i*7.3+2)*1.55;
+  // Nearby strokes align loosely into ribbons, with gaps and variable lengths.
+  // No lines exceed a few geographic degrees or connect distant places.
+  const ribbon=(hash(Math.floor(i/7)*6.77+4.9)-.5);
+  const side=(hash(i*1.87+8.5)-.5)*.85+ribbon*.42;
+  const length=1.25+hash(i*7.3+2)*1.52;
   const centerLat=lat+side*v.east;
   const centerLon=lon-side*v.north/Math.max(.27,Math.cos(lat*RAD));
   if(!isOcean(centerLat,centerLon))continue;
+  // Give coastlines, coastal news markers and route crossings some breathing room.
+  // Coarse ocean-side clearance is visual only; no news data is filtered.
+  const cos=Math.max(.35,Math.cos(centerLat*RAD));
+  if(hash(i*19.47+4.1)<.58 && (
+    !isOcean(centerLat+1.4,centerLon)||!isOcean(centerLat-1.4,centerLon)||
+    !isOcean(centerLat,centerLon+1.4/cos)||!isOcean(centerLat,centerLon-1.4/cos)
+  ))continue;
   // 2-3 curved segments, total span typically 1-2 degrees; no long arcs.
-  const steps=hash(i*2.07+9)>.52?3:2;
+  const steps=hash(i*2.07+9)>.42?4:3;
   let current=advect(centerLat,centerLon,length*.5,-1);
   if(!current||!isOcean(current.lat,current.lon))continue;
   const pts=[current];let valid=true;
@@ -127,14 +149,17 @@ function populate(group,features,uniforms){
   }
   if(!valid)continue;
   const phase=hash(i*14.1+7);
-  const tone=.35+.65*hash(i*3.14+1);
+  const tierRoll=hash(i*11.23+17.4);
+  // Mostly background flow; a small fraction carries brighter direction cues.
+  const tone=tierRoll<.65?.18+.24*hash(i*3.14+1):
+    tierRoll<.93?.45+.23*hash(i*3.14+1):.72+.2*hash(i*3.14+1);
   for(let j=0;j<pts.length-1;j++){
    linePositions.push(...position(pts[j].lat,pts[j].lon).toArray(),...position(pts[j+1].lat,pts[j+1].lon).toArray());
    lineTones.push(tone,tone);
    linePhases.push(phase,phase);
    lines++;
   }
-  if(hash(i*13.19+5)<.76){
+  if(hash(i*13.19+5)<.59){
    const midpoint=pts[Math.floor(pts.length/2)];
    const p=position(midpoint.lat,midpoint.lon);
    // Two unit-sphere nearby positions form a tangent basis in 3D.
@@ -142,7 +167,7 @@ function populate(group,features,uniforms){
    if(!toward)continue;
    const tangent=position(toward.lat,toward.lon).sub(p).normalize();
    particlePositions.push(...p.toArray());particleTangents.push(...tangent.toArray());
-   particlePhases.push(phase);particleSpeeds.push(.15+.13*hash(i*3.31));
+   particlePhases.push(phase);particleSpeeds.push(.11+.1*hash(i*3.31));particleTones.push(tone);
    particles++;
   }
  }
@@ -157,13 +182,14 @@ function populate(group,features,uniforms){
  particleGeo.setAttribute('aTangent',new THREE.Float32BufferAttribute(particleTangents,3));
  particleGeo.setAttribute('aPhase',new THREE.Float32BufferAttribute(particlePhases,1));
  particleGeo.setAttribute('aSpeed',new THREE.Float32BufferAttribute(particleSpeeds,1));
+ particleGeo.setAttribute('aTone',new THREE.Float32BufferAttribute(particleTones,1));
  const dots=new THREE.Points(particleGeo,makeMaterial(uniforms,true));
  dots.frustumCulled=false;dots.renderOrder=2;group.add(dots);
  group.userData.strokeCount=lines;group.userData.particleCount=particles;
 }
 export function createOceanCurrents(){
  const group=new THREE.Group();group.name='WorldPulse illustrative ocean flow field';
- const uniforms={uTime:{value:0},uMotion:{value:1},uIntensity:{value:.72}};
+ const uniforms={uTime:{value:0},uMotion:{value:1},uIntensity:{value:.68}};
  // main.js reads this interface once every frame. Preserve it unchanged.
  group.userData={material:{uniforms},representation:'illustrative ocean surface flow field',status:'loading'};
  fetch('./data/world-borders.geojson').then(r=>{if(!r.ok)throw Error(`Geography ${r.status}`);return r.json();})
