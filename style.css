@@ -17,3 +17,36 @@
 
 /* WorldPulse 2.0E.4 — unobtrusive geographic evidence */
 .geographic-evidence { font-size: 11px; line-height: 1.5; color: #8fb8c3; margin: 5px 0 9px; padding-left: 9px; border-left: 2px solid rgba(100,221,212,.35); overflow-wrap: anywhere; }
+
+/* WorldPulse 2.1B.2.1 — quieter introduction, globe-first hierarchy.
+   Text only; the Earth renderer/canvas and interactive layers are untouched. */
+.stage .intro {
+  top: 7%;
+  left: 5.2%;
+  width: min(300px, 33%);
+}
+.stage .intro .eyebrow {font-size: 9px; letter-spacing: .18em;}
+.stage .intro h1 {
+  font-size: clamp(23px, 2.25vw, 37px);
+  line-height: 1.12;
+  letter-spacing: -.045em;
+  margin: 15px 0 12px;
+  font-weight: 660;
+}
+.stage .intro p {
+  max-width: 265px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #91acba;
+  margin: 0;
+}
+@media (max-width: 880px) and (min-width: 651px) {
+  .stage .intro {width: min(260px, 37%);}
+  .stage .intro h1 {font-size: clamp(22px, 3vw, 29px);}
+  .stage .intro p {font-size: 10px; max-width: 235px;}
+}
+@media (max-width: 650px) {
+  .stage .intro {top: 7%;left: 6%;width: min(245px, 62%);}
+  .stage .intro h1 {font-size: clamp(22px, 6vw, 29px);}
+  .stage .intro p {font-size: 10px; max-width: 230px;}
+}
