@@ -1,6 +1,4 @@
 import * as THREE from 'three';
-import {evidenceElement} from './geo-evidence.js';
-import {renderStoryClusters} from './story-clusters.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {earthLayer,meshLayer,borderLayer,populationLayer,emptyRouteLayers} from './layers.js';
 import {loadConnections} from './routes.js';
@@ -53,7 +51,7 @@ function showNews(p){
  else ordered.sort((a,b)=>{const t=x=>Date.parse(x.published_at||x.date||'')||0;return t(b)-t(a)});
  for(const a of ordered.slice(0,50)){
   const block=document.createElement('div');block.className='news-story';const link=document.createElement('a');link.href=a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=a.title||'View source article';block.append(link);
-  const meta=document.createElement('small');meta.textContent=[a.publisher,a.place,a.published_at?readableDate(a.published_at):null].filter(Boolean).join(' · ');block.append(meta);block.append(evidenceElement(a,true));holder.append(block);
+  const meta=document.createElement('small');meta.textContent=[a.publisher,a.place,a.published_at?readableDate(a.published_at):null].filter(Boolean).join(' · ');block.append(meta);holder.append(block);
  }
  if(ordered.length>50){const note=document.createElement('p');note.textContent=`Showing the first 50 of ${ordered.length} linked articles in this selection.`;holder.append(note);}
 }
@@ -80,7 +78,7 @@ function exploreStories(){
   const meta=document.createElement('small');meta.textContent=[point?.name||(story.browse_status==='archive'?'Archive · location unverified':'Location unverified'),story.publisher,NEWS_LABELS[point?.category||story.category]].filter(Boolean).join(' · ');
   const inspect=document.createElement('button');inspect.type='button';inspect.textContent='View location';if(point)inspect.addEventListener('click',()=>{showNews({...point,members:[point]});});else inspect.hidden=true;
   const link=document.createElement('a');link.href=story.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' Open article ↗';link.style.cssText='color:#8be2da;font-size:11px;margin-left:8px';
-  item.append(title,meta,evidenceElement(story,Boolean(point)),inspect,link);container.append(item);
+  item.append(title,meta,inspect,link);container.append(item);
  }
  if(matches.length>40){const p=document.createElement('p');p.textContent='Showing the first 40 matches. Narrow your search for more specific results.';container.append(p);}
 }
@@ -105,7 +103,6 @@ function renderDiscovery(){
  const cap=$('discoverCaption');const rows=linkedDiscovery();
  if(!newsFeed){cap.textContent='Waiting for news feed';return;}
  if(!rows.length){cap.textContent='No linked articles in currently selected categories';return;}
- renderStoryClusters(newsFeed,list,news.categories);
  // Group conservatively by normalised headline. Similar but differently
  // worded events remain separate; these are headline groups, not entity-level clustering.
  const norm=t=>t.toLocaleLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
@@ -139,7 +136,7 @@ function renderDiscovery(){
   const actions=document.createElement('div');actions.className='discover-card-actions';
   if(item.row.p){const locate=document.createElement('button');locate.type='button';locate.textContent='View on globe';locate.addEventListener('click',()=>showNews({...item.row.p,members:[item.row.p]}));actions.append(locate);}else{const flag=document.createElement('span');flag.className='browse-unlocated';flag.textContent=item.row.a.browse_status==='archive'?'Archive · location unverified':'Location unverified';actions.append(flag);}
   const link=document.createElement('a');link.href=item.row.a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Read source ↗';actions.append(link);
-  card.append(title,meta,evidenceElement(item.row.a,Boolean(item.row.p)),actions);list.append(card);
+  card.append(title,meta,actions);list.append(card);
  }
  if(!items.length){const empty=document.createElement('p');empty.className='discover-empty';empty.textContent='No stories available for this view.';list.append(empty);}
 }
@@ -169,7 +166,40 @@ $('refreshNews').addEventListener('click',updateNews);
 $('closeNews').addEventListener('click',()=>{$('newsDrawer').hidden=true;});
 renderer.domElement.addEventListener('pointerdown',e=>{newsPointerDown={x:e.clientX,y:e.clientY};});
 renderer.domElement.addEventListener('pointerup',e=>{if(newsPointerDown&&Math.hypot(newsPointerDown.x-e.clientX,newsPointerDown.y-e.clientY)<6)news.pick(e.clientX,e.clientY);newsPointerDown=null;});
-function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix();renderer.setSize(w,h,false);}new ResizeObserver(resize).observe(stage);resize();
+// Responsive globe framing: size the Earth for the *actual stage*, not the full window.
+// Keep room for the hero copy on wide screens; use the centre on narrow screens.
+// View offsets move the projection without moving the scene or distorting coordinates.
+let fittedDistance=3.55;
+function fitGlobeView(resetZoom=true){
+ const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);
+ const wide=w>=680;
+ const titleReserve=wide?Math.min(440,w*.43):0;
+ const diameter=Math.max(150,Math.min(h*.72,w*(wide?.62:.78),wide?w-titleReserve-30:w-26));
+ const fov=THREE.MathUtils.degToRad(camera.fov);
+ // Perspective projected sphere silhouette is proportional to 1/sqrt(d^2-r^2).
+ fittedDistance=Math.max(2.8,Math.sqrt(1+Math.pow(h/(diameter*Math.tan(fov/2)),2)));
+ camera.aspect=w/h;
+ const centreX=wide?.68:.50,centreY=wide?.52:.51;
+ camera.setViewOffset(w,h,(.5-centreX)*w,(.5-centreY)*h,w,h);
+ if(resetZoom){
+  camera.position.set(0,0,fittedDistance);
+  controls.target.set(0,0,0);
+  controls.update();
+ }
+ camera.updateProjectionMatrix();
+ renderer.setSize(w,h,false);
+}
+let previousStageWidth=0,previousStageHeight=0;
+function resize(){
+ const w=Math.round(stage.clientWidth),h=Math.round(stage.clientHeight);
+ if(w<2||h<2)return;
+ if(w===previousStageWidth&&h===previousStageHeight)return;
+ previousStageWidth=w;previousStageHeight=h;
+ fitGlobeView(true);
+}
+new ResizeObserver(resize).observe(stage);
+window.addEventListener('orientationchange',()=>requestAnimationFrame(resize));
+resize();
 function setError(e){console.error('WorldPulse 2.0B:',e);error.hidden=false;error.textContent='The globe could not finish loading: '+e.message+'. Check network access to the Three.js CDN, and make sure all folders were uploaded.';status.textContent='LOAD ERROR';}
 async function load(){try{status.innerHTML='<span class="status-led"></span> LOADING GEOGRAPHY';const response=await fetch('./data/world-borders.geojson');if(!response.ok)throw new Error('Geographic data HTTP '+response.status);const data=await response.json();features=data.features.filter(f=>f.geometry);layers.borders=borderLayer(features);globe.add(layers.borders);$('countryCount').textContent=features.length.toLocaleString();await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';}catch(e){setError(e)}}
 async function changePopulation(){if(!features.length)return;const quality=settings.quality==='auto'?(window.innerWidth<700||navigator.hardwareConcurrency<=4?'low':'high'):settings.quality;const next=await populationLayer(features,quality);if(layers.population){globe.remove(layers.population);layers.population.geometry.dispose();layers.population.material.dispose();}layers.population=next.object;globe.add(layers.population);pop=next;pop.material.uniforms.uFlicker.value=settings.flicker?1:0;$('pointCount').textContent=next.count.toLocaleString();$('populationHint').textContent=next.measured?'Measured density · zoom-adaptive':'Land-point preview — not population data';$('datasetNote').textContent=next.measured?('Population raster loaded: '+(next.metadata?.source||'measured relative-density image')+'. '+next.detailCount.toLocaleString()+' additional settlement lights are revealed progressively as you zoom in. Small local sampling reduces false spread in sparsely settled areas. Visualised density is relative, not people-per-dot. '+(next.warning||'')):'Land-only preview: geographic points do not represent population. Upload assets/population-density.png alongside the metadata JSON to enable measured settlement illumination.';}
@@ -186,7 +216,7 @@ async function changeRoutes(){
  }catch(e){console.warn('WorldPulse connections:',e);$('airHint').textContent='Route dataset unavailable';$('seaHint').textContent='Route dataset unavailable';}
 }
 function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>news.setVisible(v));bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
-$('homeBtn').addEventListener('click',()=>{controls.reset();camera.position.set(0,0,3.55);controls.target.set(0,0,0);controls.update();});
+$('homeBtn').addEventListener('click',()=>{controls.reset();fitGlobeView(true);});
 function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();news.update();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
 function clock(){const d=new Date();$('utc').textContent='UTC '+d.toISOString().slice(11,16);}clock();setInterval(clock,30000);
 // News is read from the original WorldPulse publisher feed; no synthetic headlines.
