@@ -1,0 +1,16 @@
+WORLD PULSE 2.0D.2 — ORIGINAL REPO PATCH
+
+IMPORTANT: UPLOAD TO `DVExperiments/WorldPulse` (original), NOT `WorldPulse-2`.
+
+Upload these, preserving paths:
+ scripts/publisher_network.py
+ scripts/coverage_expansion.py
+ scripts/audit_global_coverage.py
+ scripts/preflight_candidates.py
+ data/country-inventory.json
+ tests/test_coverage_extension.py
+
+Leave .github/workflows/update.yml and scripts/update.py unchanged.
+This version stages up to 8 unverified candidate feeds, many of which might already exist and be deduplicated.
+Next GitHub Actions run should report which feeds work in data/source-health.json.
+Detailed documentation: README.md.
