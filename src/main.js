@@ -37,6 +37,42 @@ const panelHead=document.querySelector('.panel-head');
 if(panelHead)panelHead.insertAdjacentElement('afterend',geoNavSection);
 const geoInput=$('geoNavSearch'),geoResults=$('geoNavResults'),geoStatus=$('geoNavStatus');
 let geoEntries=[];let geoFlight=null;
+// v2.2E.1: opt-in, feed-grounded geographic discovery. No extra requests or inferred news.
+const geoExplore=document.createElement('section');geoExplore.id='geoExplore';geoExplore.setAttribute('aria-label','Explore news around the world');
+geoExplore.style.cssText='margin-top:13px;padding:13px;background:#0b2c3b;border:1px solid #31586b;border-radius:9px';
+geoExplore.innerHTML=`<div style="font-size:11px;font-weight:750;letter-spacing:.1em;color:#7be2d9;margin-bottom:6px">EXPLORE SOMEWHERE</div>
+<p style="font-size:11px;color:#b4ced6;line-height:1.55;margin:0 0 10px">Not sure where to start? Discover places with mapped news right now.</p>
+<div id="geoExploreItems" aria-live="polite" style="display:grid;gap:8px"></div>
+<button id="geoExploreMore" type="button" style="width:100%;margin-top:10px;background:#174455;border:1px solid #487e88;border-radius:7px;padding:9px;color:#d8f8f3;cursor:pointer;font:inherit;font-size:11px">↻ Show different places</button>
+<p style="font-size:10px;line-height:1.4;color:#8faeba;margin:9px 0 0">Suggestions come from sampled RSS coverage, not a ranking of world events.</p>`;
+geoNavSection.append(geoExplore);
+let geoExplorePage=0,geoExploreCandidates=[];
+const discoveryHash=s=>{let h=2166136261;for(const ch of s){h=Math.imul(h^ch.charCodeAt(0),16777619);}return h>>>0;};
+function renderGeoExplore(){
+ const box=$('geoExploreItems');box.replaceChildren();
+ if(!geoExploreCandidates.length){const p=document.createElement('p');p.style.cssText='margin:0;color:#9bbcc7;font-size:11px';p.textContent='Suggestions will appear when mapped headlines are available.';box.append(p);$('geoExploreMore').disabled=true;return;}
+ $('geoExploreMore').disabled=geoExploreCandidates.length<=3;
+ const count=Math.min(3,geoExploreCandidates.length);const start=(geoExplorePage*count)%geoExploreCandidates.length;
+ for(let i=0;i<count;i++){
+  const e=geoExploreCandidates[(start+i)%geoExploreCandidates.length];
+  const card=document.createElement('div');card.style.cssText='background:#103745;border:1px solid #315b6a;border-radius:7px;padding:10px';
+  const name=document.createElement('strong');name.textContent=e.name;name.style.cssText='display:block;color:#e4fcf7;font-size:12px;margin-bottom:3px';
+  const hint=document.createElement('div');hint.textContent=`${e.count} sampled article${e.count===1?'':'s'} · ${e.accuracy==='country'?'country':e.accuracy==='region'?'region':'place'} subject`;hint.style.cssText='font-size:10px;color:#a3c2cb;margin-bottom:8px';
+  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:7px;flex-wrap:wrap';
+  const fly=document.createElement('button');fly.type='button';fly.textContent='Fly to';fly.style.cssText='background:#12505a;border:1px solid #39938f;border-radius:6px;padding:6px 9px;color:#d8fff7;cursor:pointer;font:inherit;font-size:11px';fly.addEventListener('click',()=>{if(historicalObservation)restoreLive();flyToGeo(e);});
+  const read=document.createElement('button');read.type='button';read.textContent='Explore news ↗';read.style.cssText='background:#1c4051;border:1px solid #4e7382;border-radius:6px;padding:6px 9px;color:#e3fbfb;cursor:pointer;font:inherit;font-size:11px';read.addEventListener('click',()=>{if(historicalObservation)restoreLive();flyToGeo(e);openPlaceNews(e);});
+  actions.append(fly,read);card.append(name,hint,actions);box.append(card);
+ }
+}
+function refreshGeoExplore(){
+ const eligible=geoEntries.filter(e=>e.count>=2&&e.points.some(p=>(p.articles||[]).some(a=>/^https:\/\//.test(a.url||''))));
+ // A rotating deterministic order keeps suggestions varied without equating headline volume with news importance.
+ const date=new Date().toISOString().slice(0,10);const order=eligible.sort((a,b)=>discoveryHash(date+'|'+a.name)-discoveryHash(date+'|'+b.name));
+ const country=order.filter(e=>e.accuracy==='country'),local=order.filter(e=>e.accuracy!=='country');
+ const mixed=[];while(country.length||local.length){if(country.length)mixed.push(country.shift());if(local.length)mixed.push(local.shift());}
+ geoExploreCandidates=mixed;geoExplorePage=0;renderGeoExplore();
+}
+$('geoExploreMore').addEventListener('click',()=>{geoExplorePage++;renderGeoExplore();});
 function buildGeoEntries(){
  const entries=new Map();
  for(const p of newsFeed?.points||[]){
@@ -48,6 +84,7 @@ function buildGeoEntries(){
  }
  geoEntries=[...entries.values()].sort((a,b)=>a.name.localeCompare(b.name));
  geoStatus.textContent=geoEntries.length+' mapped locations available · locations are news subjects, not verified event sites';
+ refreshGeoExplore();
  if(geoInput.value.trim())showGeoMatches();
 }
 function flyToGeo(e){
