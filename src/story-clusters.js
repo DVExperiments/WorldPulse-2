@@ -218,8 +218,9 @@ function setupDiscoverWorkspace() {
 .wp-discover-scroll .discover-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:15px 0}
 .wp-discover-scroll .discover-tabs button{font-size:12px;padding:10px 15px;flex:0 1 auto}
 .wp-discover-scroll .discover-explainer,.wp-discover-scroll .discover-caption{font-size:12px;max-width:75ch}
-.wp-discover-scroll .discover-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;max-height:none;overflow:visible;align-items:start}
-.wp-discover-scroll .discover-card{padding:17px;border-radius:10px;gap:9px;min-width:0}
+.wp-discover-scroll .discover-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;max-height:none;overflow:visible;align-items:stretch}
+.wp-discover-scroll .discover-card{padding:17px;border-radius:10px;gap:9px;min-width:0;min-height:155px;display:flex;flex-direction:column;height:100%}
+.wp-discover-scroll .discover-card .discover-card-actions{margin-top:auto;padding-top:6px}
 .wp-discover-scroll .discover-card strong{font-size:14px;line-height:1.45}
 .wp-discover-scroll .discover-card small{font-size:11px}
 .wp-discover-scroll .story-cluster-section{grid-column:1/-1;min-width:0}
