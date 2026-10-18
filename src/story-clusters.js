@@ -1,3 +1,4 @@
+import './global-pulse.js';
 // WorldPulse v2.0F.3 — multi-publisher coverage comparison.
 // Data from sampled feeds, not fact-checked canonical events or editorial bias scores.
 const VALID_URL = /^https?:\/\//i;
