@@ -64,11 +64,17 @@ export class NewsLayer{
   for(const p of this.active){
    positions.push(...llToXYZ(p.lat,p.lng,1.027));
    const col=new THREE.Color(NEWS_COLORS[p.category]);colors.push(col.r,col.g,col.b);
-   // Small independent dots; only genuine multi-location groups receive a mild size increase.
-   sizes.push(p.members?.length>1?Math.min(.88,.63+.075*Math.log2(p.members.length+1)):.53);
+   // v2.3A: colour remains the news category; restrained size indicates
+   // *sampled RSS coverage*, not importance, severity or verified events.
+   // A logarithmic, capped scale prevents high-volume feeds dominating the map.
+   // A genuine multi-place cluster receives only a small additional cue.
+   const sampled=Math.max(1,Number.isFinite(p.count)?p.count:1);
+   const coverageCue=Math.min(0.27,0.085*Math.log2(sampled));
+   const clusterCue=p.members?.length>1?Math.min(0.08,0.025*Math.log2(p.members.length+1)):0;
+   sizes.push(Math.min(0.88,0.52+coverageCue+clusterCue));
   }
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setAttribute('aSize',new THREE.Float32BufferAttribute(sizes,1));
-  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,vertexColors:true,uniforms:{uSprite:{value:this.texture},uViewport:{value:Math.min(2,window.devicePixelRatio||1)}},vertexShader:`attribute float aSize;varying vec3 vCol;uniform float uViewport;void main(){vCol=color;vec4 v=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*v;gl_PointSize=clamp(aSize*21.0*uViewport/max(1.0,-v.z),2.2,11.0);}`,fragmentShader:`uniform sampler2D uSprite;varying vec3 vCol;void main(){float a=texture2D(uSprite,gl_PointCoord).r;gl_FragColor=vec4(vCol,a*.94);}`});
+  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,vertexColors:true,uniforms:{uSprite:{value:this.texture},uViewport:{value:Math.min(2,window.devicePixelRatio||1)}},vertexShader:`attribute float aSize;varying vec3 vCol;uniform float uViewport;void main(){vCol=color;vec4 v=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*v;gl_PointSize=clamp(aSize*21.0*uViewport/max(1.0,-v.z),2.2,12.0);}`,fragmentShader:`uniform sampler2D uSprite;varying vec3 vCol;void main(){float a=texture2D(uSprite,gl_PointCoord).r;gl_FragColor=vec4(vCol,a*.94);}`});
   const points=new THREE.Points(g,m);points.frustumCulled=false;this.group.add(points);this.markers=points;this.geometry=g;
  }
  pick(clientX,clientY){
