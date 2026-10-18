@@ -31,6 +31,13 @@ newsPreview.setAttribute('aria-label','News marker preview');
 newsPreview.style.cssText='position:absolute;z-index:8;display:none;width:min(295px,calc(100% - 24px));box-sizing:border-box;padding:12px 14px;border:1px solid #4d8790;border-radius:10px;background:rgba(5,28,41,.97);box-shadow:0 14px 30px #000a;color:#e7fbfb;font:12px/1.5 system-ui,sans-serif;pointer-events:none';
 newsPreview.innerHTML='<strong id="wpMarkerPlace" style="display:block;font-size:15px;color:#e5fffb;overflow-wrap:anywhere"></strong><div id="wpMarkerMeta" style="font-size:10px;color:#a6c8d0;margin:4px 0 8px"></div><div id="wpMarkerHeadline" style="font-size:12px;color:#d5edf3;line-height:1.45;overflow-wrap:anywhere"></div><div id="wpMarkerPublisher" style="font-size:10px;color:#92b8c2;margin:5px 0 9px"></div><button id="wpMarkerExplore" type="button" style="display:none;background:#14505a;color:#d8fff6;border:1px solid #58ada9;border-radius:6px;padding:7px 10px;font:600 11px system-ui;cursor:pointer;pointer-events:auto">Explore news ↗</button><small id="wpMarkerFoot" style="display:block;margin-top:7px;color:#93b5c1;font-size:9px">Sampled RSS coverage · geographic subject, not verified event site</small>';
 stage.append(newsPreview);
+// A small, nonblocking first-use hint. It disappears after interacting with a news marker.
+const markerHint=document.createElement('div');markerHint.id='wpMarkerHint';markerHint.setAttribute('role','status');
+markerHint.style.cssText='position:absolute;z-index:6;right:14px;bottom:68px;max-width:min(235px,45%);padding:6px 9px;background:rgba(7,29,42,.86);border:1px solid #2c5362;border-radius:7px;color:#a9d7d8;font:10px/1.45 system-ui,sans-serif;pointer-events:none';
+markerHint.textContent=window.matchMedia('(pointer:coarse)').matches?'Tap a coloured news dot to preview its coverage':'Hover a coloured news dot to preview its coverage';
+stage.append(markerHint);
+function dismissMarkerHint(){markerHint.hidden=true;markerHint.style.display='none';}
+
 let previewPoint=null,previewPinned=false;
 function closeMarkerPreview(){newsPreview.hidden=true;newsPreview.style.display='none';previewPoint=null;previewPinned=false;}
 function showMarkerPreview(p,clientX,clientY,pinned=false){
@@ -41,9 +48,11 @@ function showMarkerPreview(p,clientX,clientY,pinned=false){
  const publishers=new Set([...articles.values()].map(a=>String(a.publisher||'').trim().toLowerCase()).filter(Boolean));
  const count=members.reduce((sum,m)=>sum+(Number(m.count)||0),0);
  $('wpMarkerPlace').textContent=p.name||'Geographic news';
+ newsPreview.setAttribute('aria-label',`Reporting associated with ${p.name||'geographic news'}`);
  $('wpMarkerMeta').textContent=[NEWS_LABELS[p.category]||p.category,`${count} sampled article${count===1?'':'s'}`,publishers.size?`${publishers.size} publisher label${publishers.size===1?'':'s'}`:null].filter(Boolean).join(' · ');
  $('wpMarkerHeadline').textContent=newest?.title||'No linked headline in this sampled marker';
  $('wpMarkerPublisher').textContent=newest?.publisher?`Latest linked report · ${newest.publisher}`:'Select to explore available coverage';
+ $('wpMarkerFoot').textContent=`Reporting associated with ${p.name||'this location'} · sampled RSS geographic subject, not a verified event site. A headline may describe multiple places.`;
  const btn=$('wpMarkerExplore');btn.style.display=pinned?'inline-block':'none';newsPreview.style.pointerEvents=pinned?'auto':'none';
  previewPoint=p;previewPinned=pinned;newsPreview.hidden=false;newsPreview.style.display='block';
  const rect=stage.getBoundingClientRect();const width=Math.min(295,Math.max(160,rect.width-24));
@@ -53,7 +62,7 @@ function showMarkerPreview(p,clientX,clientY,pinned=false){
  const boxHeight=newsPreview.offsetHeight;
  newsPreview.style.top=Math.max(12,Math.min(rect.height-boxHeight-12,y-boxHeight-15))+'px';
 }
-news.onHover=(p,x,y)=>{if(!previewPinned){if(p)showMarkerPreview(p,x,y);else closeMarkerPreview();}};
+news.onHover=(p,x,y)=>{if(p)dismissMarkerHint();if(!previewPinned){if(p)showMarkerPreview(p,x,y);else closeMarkerPreview();}};
 $('wpMarkerExplore').addEventListener('click',()=>{const p=previewPoint;closeMarkerPreview();if(p)showNews(p);});
 renderer.domElement.addEventListener('pointerdown',()=>{if(!previewPinned)closeMarkerPreview();});
 
@@ -533,7 +542,7 @@ const newsModeSelect=$('newsDisplayMode');
 newsModeSelect.addEventListener('change',e=>{
  news.setMode(e.target.value);
  $('newsModeHint').textContent=({
-  balanced:'Most locations separate · light grouping when far out',
+  balanced:'Individual news markers · gentle spacing in crowded areas',
   individual:'Every mapped location · overlapping points may remain',
   clustered:'Compact groups · clearer at global scale'
  })[news.mode];
@@ -548,8 +557,8 @@ renderer.domElement.addEventListener('pointerup',e=>{
   const link=crossBorder.pick(e,camera,renderer.domElement.getBoundingClientRect());
   if(link){settings.rotate=false;$('rotationToggle').checked=false;showCrossBorderDetails(link);}
   else if(e.pointerType==='touch'||e.pointerType==='pen'){
-   const hit=news.hitAt(e.clientX,e.clientY);
-   if(hit){if(previewPinned&&previewPoint===hit){closeMarkerPreview();news.onSelect?.(hit);}else showMarkerPreview(hit,e.clientX,e.clientY,true);}
+   const hit=news.hitAt(e.clientX,e.clientY,true);
+   if(hit){dismissMarkerHint();if(previewPinned&&previewPoint===hit){closeMarkerPreview();news.onSelect?.(hit);}else showMarkerPreview(hit,e.clientX,e.clientY,true);}
    else closeMarkerPreview();
   }else{closeMarkerPreview();news.pick(e.clientX,e.clientY);}
  }

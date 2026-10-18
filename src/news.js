@@ -146,7 +146,7 @@ export class NewsLayer{
   if(this.hoveredIndex>=0)this.setHoverDimming(this.hoveredIndex);
  }
  // Screen-based hit testing agrees with displaced dots. No raycaster/coordinate drift.
- screenHit(clientX,clientY){
+ screenHit(clientX,clientY,touch=false){
   if(!this.enabled||!this.markers)return -1;
   this.updateDensity();const rect=this.dom.getBoundingClientRect();
   const x=clientX-rect.left,y=clientY-rect.top;
@@ -155,7 +155,7 @@ export class NewsLayer{
    const p=this.screenPositions[i];if(!p.visible)continue;
    const dx=x-p.x-p.dx,dy=y-p.y-p.dy,d2=dx*dx+dy*dy;
    // 10px click target (density separated dots receive a modest tap target).
-   if(d2<=100&&d2<bestSq){best=i;bestSq=d2;}
+   if(d2<=(touch?324:100)&&d2<bestSq){best=i;bestSq=d2;}
   }
   return best;
  }
@@ -180,6 +180,6 @@ export class NewsLayer{
   if(this.markers)this.markers.material.uniforms.uHover.value=-1;
   this.setHoverDimming(-1);if(had)this.onHover?.(null);
  }
- hitAt(clientX,clientY){const index=this.screenHit(clientX,clientY);return index>=0?this.active[index]:null;}
+ hitAt(clientX,clientY,touch=false){const index=this.screenHit(clientX,clientY,touch);return index>=0?this.active[index]:null;}
  pick(clientX,clientY){const p=this.hitAt(clientX,clientY);if(!p)return false;this.onSelect?.(p);return true;}
 }
