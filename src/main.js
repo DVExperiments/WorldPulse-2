@@ -3,6 +3,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {earthLayer,meshLayer,borderLayer,populationLayer,emptyRouteLayers} from './layers.js';
 import {loadConnections} from './routes.js';
 import {NewsLayer,fetchNews,NEWS_COLORS,NEWS_LABELS} from './news.js';
+import {CrossBorderGlobe,showCrossBorderDetails} from './cross-border-globe.js';
 const $=id=>document.getElementById(id);const stage=$('globe'),status=$('status'),error=$('error');const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
 const settings={rotate:!prefersReduced.matches,reduce:prefersReduced.matches,flicker:!prefersReduced.matches,quality:'auto',routesMotion:!prefersReduced.matches};
 const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(40,1,.1,70);camera.position.set(0,0,3.55);const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.outputColorSpace=THREE.SRGBColorSpace;stage.appendChild(renderer.domElement);
@@ -10,6 +11,18 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 const layers={earth:earthLayer(),mesh:meshLayer(),borders:null,population:null,...emptyRouteLayers()};globe.add(layers.earth,layers.mesh,layers.news,layers.air,layers.sea);
 let pop=null,features=[],frame=0,last=performance.now();
 const news=new NewsLayer(layers.news,camera,renderer.domElement);
+const crossBorder=new CrossBorderGlobe(globe);
+const crossBorderToggle=document.createElement('input');
+crossBorderToggle.type='checkbox';crossBorderToggle.id='crossBorderToggle';crossBorderToggle.setAttribute('aria-label','Show cross-border news connections');
+const crossBorderLabel=document.createElement('label');crossBorderLabel.className='switch';
+const crossBorderCaption=document.createElement('span');crossBorderCaption.innerHTML='<i class="glyph" style="color:#f3bb75">↔</i> Cross-border news';
+const crossBorderHint=document.createElement('small');crossBorderHint.id='crossBorderHint';
+crossBorderHint.textContent='Off by default · waiting for headline evidence';
+crossBorderCaption.append(crossBorderHint);crossBorderLabel.append(crossBorderCaption,crossBorderToggle);
+const newsSwitch=document.getElementById('newsToggle')?.closest('label');
+if(newsSwitch)newsSwitch.insertAdjacentElement('afterend',crossBorderLabel);
+else document.querySelector('.panel .section')?.append(crossBorderLabel);
+crossBorderToggle.addEventListener('change',()=>crossBorder.setVisible(crossBorderToggle.checked));
 let newsFeed=null,newsLastUpdated=0,newsPointerDown=null,selectedNews=null;
 const safeText=v=>typeof v==='string'?v:'';
 const browseExtras=()=>Array.isArray(newsFeed?.meta?.unlocated_articles)?newsFeed.meta.unlocated_articles.filter(a=>typeof a.url==='string'&&/^https:\/\//i.test(a.url)&&a.location_status==='unverified'&&news.categories.has(a.category)):[];
@@ -26,6 +39,10 @@ async function updateNews(){
  $('newsHint').textContent='Loading mapped headlines…';
  try{
   const d=await fetchNews();newsFeed=d;news.setPoints(d.points);newsLastUpdated=Date.now();
+   const crossCount=crossBorder.setLinks(d.meta?.cross_border || d.cross_border);
+   crossBorderHint.textContent=crossCount?`${crossCount} headline-supported candidates · select an arc for sources`:'No qualifying bilateral headlines in this refresh';
+   crossBorderToggle.disabled=!crossCount;
+   crossBorder.setVisible(crossBorderToggle.checked && crossCount>0);
   $('newsHint').textContent=d.points.length.toLocaleString()+' geographic signals · '+(d.meta.status||'snapshot');
   $('newsStats').textContent=d.points.reduce((n,p)=>n+p.count,0).toLocaleString()+' mapped sampled articles · '+(Array.isArray(d.meta.unlocated_articles)?d.meta.unlocated_articles.length+' extra browse-only articles · ':'')+'Updated '+readableDate(d.meta.updated_at)+(d.meta.status==='partial'?' · partial feeds':'')+(d.meta.status==='stale'?' · feed reported stale':'');
   if($('storySearch').value.trim())exploreStories();
@@ -165,7 +182,14 @@ news.setMode(newsModeSelect.value);
 $('refreshNews').addEventListener('click',updateNews);
 $('closeNews').addEventListener('click',()=>{$('newsDrawer').hidden=true;});
 renderer.domElement.addEventListener('pointerdown',e=>{newsPointerDown={x:e.clientX,y:e.clientY};});
-renderer.domElement.addEventListener('pointerup',e=>{if(newsPointerDown&&Math.hypot(newsPointerDown.x-e.clientX,newsPointerDown.y-e.clientY)<6)news.pick(e.clientX,e.clientY);newsPointerDown=null;});
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(newsPointerDown&&Math.hypot(newsPointerDown.x-e.clientX,newsPointerDown.y-e.clientY)<6){
+  const link=crossBorder.pick(e,camera,renderer.domElement.getBoundingClientRect());
+  if(link){settings.rotate=false;$('rotationToggle').checked=false;showCrossBorderDetails(link);}
+  else news.pick(e.clientX,e.clientY);
+ }
+ newsPointerDown=null;
+});
 // v2.0F.4.2 — safe responsive globe view.
 // The previous setViewOffset projection moved the Earth out of the canvas on
 // some displays. Never use a projection offset for the default camera.
