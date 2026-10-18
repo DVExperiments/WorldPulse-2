@@ -107,12 +107,73 @@ function comparison(cluster){
   if(cluster.coverage_status||Array.isArray(cluster.coverage_timeline))root.append(coveragePanel(cluster));
   return root;
 }
+// F4: cautious bilateral relationship explorer. No effect on Three.js scene.
+function crossBorderSection(feed){
+  const links=Array.isArray(feed?.cross_border?.links)?feed.cross_border.links:[];
+  const section=el('section','wp-f4-section');
+  section.append(el('h3',null,'Cross-border connections'));
+  section.append(el('p','wp-f3-intro','Explicit country-to-country relationships mentioned in sampled headlines. A link indicates reporting about a possible relationship—not a verified event, flight, trade flow or causal connection.'));
+  if(!links.length){section.append(el('p','wp-f3-empty','No high-confidence headline candidates in this refresh. WorldPulse does not draw inferred links.'));return section;}
+  const tools=el('div','wp-f4-tools');
+  const filter=el('select');filter.setAttribute('aria-label','Filter cross-border relationship');
+  const opts=[['','All relationship types'],...new Set(links.map(x=>x.relationship)).values()].map(x=>Array.isArray(x)?x:[x,x[0].toUpperCase()+x.slice(1)]);
+  for(const [val,label] of opts){const o=el('option',null,label);o.value=val;filter.append(o);} tools.append(filter);section.append(tools);
+  const diagram=el('div','wp-f4-map');
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 720 310');svg.setAttribute('role','img');svg.setAttribute('aria-label','Schematic location of connected countries, not an incident or navigation map');
+  const label=el('p','wp-f3-small','Country positions are approximate map anchors, not event coordinates.');
+  diagram.append(svg,label);section.append(diagram);
+  const cards=el('div','wp-f4-list');section.append(cards);
+  function drawMap(items){
+    svg.replaceChildren();
+    const ns='http://www.w3.org/2000/svg';
+    function elem(tag,attrs){const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));svg.append(n);return n;}
+    for(let i=1;i<6;i++)elem('line',{x1:0,x2:720,y1:i*310/6,y2:i*310/6,stroke:'#325367','stroke-opacity':'.35'});
+    for(let i=1;i<12;i++)elem('line',{x1:i*720/12,x2:i*720/12,y1:0,y2:310,stroke:'#325367','stroke-opacity':'.35'});
+    const coord=c=>[10+(c.lng+180)/360*700,10+(90-c.lat)/180*290];
+    for(const item of items.slice(0,15)){
+      const [a,b]=item.countries.map(coord);
+      const path=elem('path',{d:`M ${a[0]} ${a[1]} Q ${(a[0]+b[0])/2} ${Math.min(a[1],b[1])-20} ${b[0]} ${b[1]}`,fill:'none',stroke:'#60dec9','stroke-width':1.5,'stroke-opacity':'.45'});
+      for(let i=0;i<2;i++){const c=item.countries[i],v=[a,b][i];elem('circle',{cx:v[0],cy:v[1],r:4,fill:'#80f4e5',stroke:'#0c2935','stroke-width':2});}
+    }
+  }
+  function render(){
+    const items=links.filter(x=>!filter.value||x.relationship===filter.value);
+    drawMap(items);cards.replaceChildren();
+    for(const item of items){
+      if(!Array.isArray(item.countries)||item.countries.length!==2)continue;
+      const d=el('details','wp-f4-card'),summary=el('summary');
+      summary.append(el('strong',null,`${item.countries[0].name} ↔ ${item.countries[1].name}`));
+      summary.append(el('small',null,`${item.relationship} · ${item.article_count} reports · ${item.publisher_count} publishers`));d.append(summary);
+      const body=el('div','wp-f4-body');body.append(el('p','wp-f3-small',item.note||'Headline evidence only.'));
+      for(const a of (item.articles||[])){
+        if(!a||!VALID_URL.test(a.url||''))continue;
+        const row=el('p','wp-f4-article');const link=el('a',null,a.title||'Read original report');link.href=a.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link,el('small',null,a.publisher||'Unspecified publisher'));body.append(row);
+      }
+      d.append(body);cards.append(d);
+    }
+  }
+  filter.addEventListener('change',render);render();return section;
+}
+function installF4Styles(){
+  if(document.getElementById('wp-f4-styles'))return;
+  const st=el('style');st.id='wp-f4-styles';st.textContent=`
+.wp-f4-section{grid-column:1/-1;min-width:0;padding:15px;border:1px solid rgba(108,202,212,.33);border-radius:12px;background:rgba(11,50,63,.6);margin:0 0 12px}
+.wp-f4-section h3{margin:0 0 8px;color:#c8fcf4}.wp-f4-tools select{padding:9px 12px;color:#e7f8fa;background:#102b38;border:1px solid #46717b;border-radius:8px;margin:4px 0 13px}
+.wp-f4-map{background:linear-gradient(140deg,#102b3d,#09212e);border:1px solid #294b5d;border-radius:10px;overflow:hidden}
+.wp-f4-map svg{display:block;width:100%;height:auto;max-height:310px}.wp-f4-map p{padding:0 12px}
+.wp-f4-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:8px;margin-top:14px}
+.wp-f4-card{border:1px solid #345b69;border-radius:9px;padding:10px;background:#102f3e;min-width:0}.wp-f4-card summary{cursor:pointer}.wp-f4-card summary strong,.wp-f4-card summary small{display:block}.wp-f4-card summary small{color:#9bc3c9;margin-top:5px;font-size:11px}.wp-f4-body{margin-top:9px}.wp-f4-article{display:flex;flex-direction:column;gap:2px;font-size:12px;border-top:1px solid #325160;padding-top:8px}.wp-f4-article a{color:#b3f8e9;overflow-wrap:anywhere}.wp-f4-article small{opacity:.75}
+`;document.head.append(st);
+}
 export function renderStoryClusters(feed,list,enabledCategories){
   const clusters=Array.isArray(feed?.meta?.story_clusters)?feed.meta.story_clusters:[];
   const visible=clusters.filter(c=>c&&enabledCategories.has(c.category)&&Array.isArray(c.articles)&&Number(c.publisher_count)>=2).slice(0,8);
-  if(!visible.length)return;
+  const hasCrossBorder=Array.isArray(feed?.cross_border?.links);
+  if(!visible.length&&!hasCrossBorder)return;
   installStyles();
   const section=el('section','story-cluster-section');
+  if(hasCrossBorder){installF4Styles();list.append(crossBorderSection(feed));}
+  if(!visible.length)return;
   section.append(el('h3',null,'Multi-source story groups'));
   section.append(el('p','story-cluster-note','Headlines grouped by similarity, location and category. These are sampled reports, not verified events or fact-checks.'));
   for(const cluster of visible){
