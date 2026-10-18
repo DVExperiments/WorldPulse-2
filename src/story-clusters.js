@@ -188,7 +188,7 @@ body.wp-discover-open{overflow:hidden}
   const dialog=el('section','wp-discover-dialog');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','wp-discover-title');
   const header=el('div','wp-discover-top');
   const intro=el('div');intro.append(el('div','wp-discover-kicker','WORLDPULSE / DISCOVER'));
-  const h2=el('h2',null,'Explore the world's stories');h2.id='wp-discover-title';intro.append(h2,el('p',null,'Browse headlines, explore linked coverage, and compare how publishers report.'));
+  const h2=el('h2',null,"Explore the world's stories");h2.id='wp-discover-title';intro.append(h2,el('p',null,'Browse headlines, explore linked coverage, and compare how publishers report.'));
   const close=el('button','wp-discover-close','×');close.type='button';close.setAttribute('aria-label','Close Discover');
   header.append(intro,close);
   const scroll=el('div','wp-discover-scroll');
