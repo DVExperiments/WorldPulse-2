@@ -4,6 +4,7 @@ import {earthLayer,meshLayer,borderLayer,populationLayer,emptyRouteLayers} from 
 import {loadConnections} from './routes.js';
 import {NewsLayer,fetchNews,NEWS_COLORS,NEWS_LABELS} from './news.js';
 import {CrossBorderGlobe,showCrossBorderDetails} from './cross-border-globe.js';
+import {llToXYZ} from './geo.js';
 const $=id=>document.getElementById(id);const stage=$('globe'),status=$('status'),error=$('error');const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
 const settings={rotate:!prefersReduced.matches,reduce:prefersReduced.matches,flicker:!prefersReduced.matches,quality:'auto',routesMotion:!prefersReduced.matches};
 const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(40,1,.1,70);camera.position.set(0,0,3.55);const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.outputColorSpace=THREE.SRGBColorSpace;stage.appendChild(renderer.domElement);
@@ -25,25 +26,50 @@ else document.querySelector('.panel .section')?.append(crossBorderLabel);
 crossBorderToggle.addEventListener('change',()=>crossBorder.setVisible(crossBorderToggle.checked));
 let newsFeed=null,newsLastUpdated=0,newsPointerDown=null,selectedNews=null;
 let historicalObservation=null;
+// The compact 2.1A archive keeps at most 45 geographic location/category entries
+// per observation. It is NOT a full copy of the live geographic feed.
+const historicalDots=new THREE.Group();globe.add(historicalDots);
+const historyDotGeometry=new THREE.SphereGeometry(.0075,7,6);
+const historyDotMaterial=new THREE.MeshBasicMaterial({color:0xffcd79,transparent:true,opacity:.95,depthTest:true,depthWrite:false});
+let historyDotsMesh=null;
+function setHistoricalDots(points){
+ if(historyDotsMesh){historicalDots.remove(historyDotsMesh);historyDotsMesh.dispose?.();historyDotsMesh=null;}
+ if(!points.length)return;
+ historyDotsMesh=new THREE.InstancedMesh(historyDotGeometry,historyDotMaterial,points.length);
+ const proxy=new THREE.Object3D();
+ points.forEach((p,i)=>{const xyz=llToXYZ(p.lat,p.lng,1.035);proxy.position.set(...xyz);proxy.updateMatrix();historyDotsMesh.setMatrixAt(i,proxy.matrix);});
+ historyDotsMesh.instanceMatrix.needsUpdate=true;
+ historicalDots.add(historyDotsMesh);
+}
 const historicalBanner=document.createElement('div');
 historicalBanner.id='wp-historical-banner';historicalBanner.hidden=true;
-historicalBanner.style.cssText='position:absolute;z-index:4;left:50%;top:14px;transform:translateX(-50%);max-width:calc(100% - 24px);display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:10px 14px;background:#0a2b39ee;border:1px solid #e2b77a;border-radius:10px;color:#fff0d5;font:12px system-ui;box-shadow:0 8px 24px #0009';
+historicalBanner.style.cssText='position:absolute;z-index:4;left:50%;top:12px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:7px 13px;padding:7px 10px;background:#0a2b39ee;border:1px solid #e2b77a;border-radius:9px;color:#fff0d5;font:11px system-ui;box-shadow:0 8px 24px #0009;pointer-events:auto';
 const historicalText=document.createElement('span');
-const liveButton=document.createElement('button');liveButton.type='button';liveButton.textContent='Return to Live';liveButton.style.cssText='padding:7px 11px;border-radius:6px;background:#185264;color:#eafff8;border:1px solid #69c2c0;cursor:pointer';
-historicalBanner.append(historicalText,liveButton);stage.append(historicalBanner);
-// Inline display:flex above must never override the hidden property.
-historicalBanner.style.display='none';
-function setHistoricalBanner(on,at){historicalBanner.hidden=!on;historicalBanner.style.display=on?'flex':'none';historicalText.textContent=on?'HISTORICAL OBSERVATION · '+new Date(at).toLocaleString()+' · sampled reporting, not verified event sites':'';}
-function restoreLive(){historicalObservation=null;setHistoricalBanner(false);if(newsFeed)news.setPoints(newsFeed.points);updateNews();window.dispatchEvent(new CustomEvent('worldpulse:historical-mode',{detail:{active:false}}));}
+const historicalCoverage=document.createElement('small');historicalCoverage.style.cssText='color:#d9b987;font-size:10px';
+const liveButton=document.createElement('button');liveButton.type='button';liveButton.textContent='Return to Live';liveButton.style.cssText='padding:6px 10px;border-radius:6px;background:#185264;color:#eafff8;border:1px solid #69c2c0;cursor:pointer';
+historicalBanner.append(historicalText,historicalCoverage,liveButton);stage.append(historicalBanner);
+function setHistoricalBanner(on,at,visible=0,stored=0,total=0){
+ historicalBanner.hidden=!on;historicalBanner.style.display=on?'flex':'none';
+ historicalText.textContent=on?'ARCHIVE · '+new Date(at).toLocaleString()+' · geographic subjects':'';
+ historicalCoverage.textContent=on?`${visible} plotted / ${stored} stored${total?` · ${total} live-feed signals at collection`:''} · sample capped at 45`:'';
+}
+function restoreLive(){
+ historicalObservation=null;setHistoricalDots([]);setHistoricalBanner(false);
+ layers.news.visible=$('newsToggle').checked;
+ if(newsFeed)news.setPoints(newsFeed.points);
+ updateNews();window.dispatchEvent(new CustomEvent('worldpulse:historical-mode',{detail:{active:false}}));
+}
 liveButton.addEventListener('click',restoreLive);
 window.addEventListener('worldpulse:show-history',event=>{
  const sample=event.detail?.snapshot;const at=sample?.at;
  if(!sample||!Number.isFinite(Date.parse(at)))return;
  const rows=Array.isArray(sample.locations)?sample.locations:[];
- const points=rows.filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))&&Math.abs(Number(p.lat))<=90&&Math.abs(Number(p.lng))<=180&&Number(p.sampled_article_count)>0&&p.lat!==null&&p.lng!==null).map(p=>({lat:Number(p.lat),lng:Number(p.lng),name:String(p.name||'Geographic subject'),category:p.category,count:Number(p.sampled_article_count),accuracy:p.accuracy||'country',articles:[]}));
- historicalObservation={at,points};news.setPoints(points);setHistoricalBanner(true,at);
- // Unlike live news, archive points cannot open article lists from the live feed.
- window.dispatchEvent(new CustomEvent('worldpulse:historical-mode',{detail:{active:true,at,count:points.length}}));
+ const points=rows.filter(p=>p&&p.lat!==null&&p.lng!==null&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))&&Math.abs(Number(p.lat))<=90&&Math.abs(Number(p.lng))<=180&&Number(p.sampled_article_count)>0).map(p=>({lat:Number(p.lat),lng:Number(p.lng),name:String(p.name||'Geographic subject'),category:p.category,count:Number(p.sampled_article_count),accuracy:p.accuracy||'country',articles:[]}));
+ historicalObservation={at,points};
+ // Gold points are intentionally distinct from live multicolour category markers.
+ layers.news.visible=false;setHistoricalDots(points);historicalDots.visible=$('newsToggle').checked;
+ setHistoricalBanner(true,at,points.length,rows.length,Number(sample.mapped_signals)||0);
+ window.dispatchEvent(new CustomEvent('worldpulse:historical-mode',{detail:{active:true,at,count:points.length,stored:rows.length,feedSignals:Number(sample.mapped_signals)||0}}));
 });
 window.addEventListener('worldpulse:return-live',restoreLive);
 
@@ -266,7 +292,7 @@ async function changeRoutes(){
   $('seaCount').textContent=layers.sea.userData.count.toLocaleString();
  }catch(e){console.warn('WorldPulse connections:',e);$('airHint').textContent='Route dataset unavailable';$('seaHint').textContent='Route dataset unavailable';}
 }
-function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>news.setVisible(v));bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
+function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>{news.setVisible(v);if(historicalObservation)layers.news.visible=false;historicalDots.visible=v;});bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
 $('homeBtn').addEventListener('click',()=>{controls.reset();fitGlobeView(true);});
 function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();news.update();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
 function clock(){const d=new Date();$('utc').textContent='UTC '+d.toISOString().slice(11,16);}clock();setInterval(clock,30000);
