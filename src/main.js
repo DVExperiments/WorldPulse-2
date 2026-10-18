@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {evidenceElement} from './geo-evidence.js';
+import {renderStoryClusters} from './story-clusters.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {earthLayer,meshLayer,borderLayer,populationLayer,emptyRouteLayers} from './layers.js';
 import {loadConnections} from './routes.js';
@@ -104,6 +105,7 @@ function renderDiscovery(){
  const cap=$('discoverCaption');const rows=linkedDiscovery();
  if(!newsFeed){cap.textContent='Waiting for news feed';return;}
  if(!rows.length){cap.textContent='No linked articles in currently selected categories';return;}
+ renderStoryClusters(newsFeed,list,news.categories);
  // Group conservatively by normalised headline. Similar but differently
  // worded events remain separate; these are headline groups, not entity-level clustering.
  const norm=t=>t.toLocaleLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
