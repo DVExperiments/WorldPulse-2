@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {evidenceElement} from './geo-evidence.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {earthLayer,meshLayer,borderLayer,populationLayer,emptyRouteLayers} from './layers.js';
 import {loadConnections} from './routes.js';
@@ -51,7 +52,7 @@ function showNews(p){
  else ordered.sort((a,b)=>{const t=x=>Date.parse(x.published_at||x.date||'')||0;return t(b)-t(a)});
  for(const a of ordered.slice(0,50)){
   const block=document.createElement('div');block.className='news-story';const link=document.createElement('a');link.href=a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=a.title||'View source article';block.append(link);
-  const meta=document.createElement('small');meta.textContent=[a.publisher,a.place,a.published_at?readableDate(a.published_at):null].filter(Boolean).join(' · ');block.append(meta);holder.append(block);
+  const meta=document.createElement('small');meta.textContent=[a.publisher,a.place,a.published_at?readableDate(a.published_at):null].filter(Boolean).join(' · ');block.append(meta);block.append(evidenceElement(a,true));holder.append(block);
  }
  if(ordered.length>50){const note=document.createElement('p');note.textContent=`Showing the first 50 of ${ordered.length} linked articles in this selection.`;holder.append(note);}
 }
@@ -78,7 +79,7 @@ function exploreStories(){
   const meta=document.createElement('small');meta.textContent=[point?.name||(story.browse_status==='archive'?'Archive · location unverified':'Location unverified'),story.publisher,NEWS_LABELS[point?.category||story.category]].filter(Boolean).join(' · ');
   const inspect=document.createElement('button');inspect.type='button';inspect.textContent='View location';if(point)inspect.addEventListener('click',()=>{showNews({...point,members:[point]});});else inspect.hidden=true;
   const link=document.createElement('a');link.href=story.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' Open article ↗';link.style.cssText='color:#8be2da;font-size:11px;margin-left:8px';
-  item.append(title,meta,inspect,link);container.append(item);
+  item.append(title,meta,evidenceElement(story,Boolean(point)),inspect,link);container.append(item);
  }
  if(matches.length>40){const p=document.createElement('p');p.textContent='Showing the first 40 matches. Narrow your search for more specific results.';container.append(p);}
 }
@@ -136,7 +137,7 @@ function renderDiscovery(){
   const actions=document.createElement('div');actions.className='discover-card-actions';
   if(item.row.p){const locate=document.createElement('button');locate.type='button';locate.textContent='View on globe';locate.addEventListener('click',()=>showNews({...item.row.p,members:[item.row.p]}));actions.append(locate);}else{const flag=document.createElement('span');flag.className='browse-unlocated';flag.textContent=item.row.a.browse_status==='archive'?'Archive · location unverified':'Location unverified';actions.append(flag);}
   const link=document.createElement('a');link.href=item.row.a.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Read source ↗';actions.append(link);
-  card.append(title,meta,actions);list.append(card);
+  card.append(title,meta,evidenceElement(item.row.a,Boolean(item.row.p)),actions);list.append(card);
  }
  if(!items.length){const empty=document.createElement('p');empty.className='discover-empty';empty.textContent='No stories available for this view.';list.append(empty);}
 }
