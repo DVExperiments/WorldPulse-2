@@ -25,6 +25,38 @@ if(newsSwitch)newsSwitch.insertAdjacentElement('afterend',crossBorderLabel);
 else document.querySelector('.panel .section')?.append(crossBorderLabel);
 crossBorderToggle.addEventListener('change',()=>crossBorder.setVisible(crossBorderToggle.checked));
 let newsFeed=null,newsLastUpdated=0,newsPointerDown=null,selectedNews=null;
+// v2.3B.1: on-demand news preview. Not a claim of verified incident location.
+const newsPreview=document.createElement('aside');newsPreview.id='wpMarkerPreview';newsPreview.hidden=true;
+newsPreview.setAttribute('aria-label','News marker preview');
+newsPreview.style.cssText='position:absolute;z-index:8;display:none;width:min(295px,calc(100% - 24px));box-sizing:border-box;padding:12px 14px;border:1px solid #4d8790;border-radius:10px;background:rgba(5,28,41,.97);box-shadow:0 14px 30px #000a;color:#e7fbfb;font:12px/1.5 system-ui,sans-serif;pointer-events:none';
+newsPreview.innerHTML='<strong id="wpMarkerPlace" style="display:block;font-size:15px;color:#e5fffb;overflow-wrap:anywhere"></strong><div id="wpMarkerMeta" style="font-size:10px;color:#a6c8d0;margin:4px 0 8px"></div><div id="wpMarkerHeadline" style="font-size:12px;color:#d5edf3;line-height:1.45;overflow-wrap:anywhere"></div><div id="wpMarkerPublisher" style="font-size:10px;color:#92b8c2;margin:5px 0 9px"></div><button id="wpMarkerExplore" type="button" style="display:none;background:#14505a;color:#d8fff6;border:1px solid #58ada9;border-radius:6px;padding:7px 10px;font:600 11px system-ui;cursor:pointer;pointer-events:auto">Explore news ↗</button><small id="wpMarkerFoot" style="display:block;margin-top:7px;color:#93b5c1;font-size:9px">Sampled RSS coverage · geographic subject, not verified event site</small>';
+stage.append(newsPreview);
+let previewPoint=null,previewPinned=false;
+function closeMarkerPreview(){newsPreview.hidden=true;newsPreview.style.display='none';previewPoint=null;previewPinned=false;}
+function showMarkerPreview(p,clientX,clientY,pinned=false){
+ if(!p||historicalObservation||!news.enabled){closeMarkerPreview();return;}
+ const members=p.members||[p],articles=new Map();
+ for(const m of members)for(const a of m.articles||[]){if(typeof a.url==='string'&&/^https?:\/\//i.test(a.url)&&!articles.has(a.url))articles.set(a.url,a);}
+ const newest=[...articles.values()].sort((a,b)=>(Date.parse(b.published_at||'')||0)-(Date.parse(a.published_at||'')||0))[0];
+ const publishers=new Set([...articles.values()].map(a=>String(a.publisher||'').trim().toLowerCase()).filter(Boolean));
+ const count=members.reduce((sum,m)=>sum+(Number(m.count)||0),0);
+ $('wpMarkerPlace').textContent=p.name||'Geographic news';
+ $('wpMarkerMeta').textContent=[NEWS_LABELS[p.category]||p.category,`${count} sampled article${count===1?'':'s'}`,publishers.size?`${publishers.size} publisher label${publishers.size===1?'':'s'}`:null].filter(Boolean).join(' · ');
+ $('wpMarkerHeadline').textContent=newest?.title||'No linked headline in this sampled marker';
+ $('wpMarkerPublisher').textContent=newest?.publisher?`Latest linked report · ${newest.publisher}`:'Select to explore available coverage';
+ const btn=$('wpMarkerExplore');btn.style.display=pinned?'inline-block':'none';newsPreview.style.pointerEvents=pinned?'auto':'none';
+ previewPoint=p;previewPinned=pinned;newsPreview.hidden=false;newsPreview.style.display='block';
+ const rect=stage.getBoundingClientRect();const width=Math.min(295,Math.max(160,rect.width-24));
+ const x=Number.isFinite(clientX)?clientX-rect.left:rect.width/2;const y=Number.isFinite(clientY)?clientY-rect.top:rect.height/2;
+ const left=Math.max(12,Math.min(rect.width-width-12,x+18));
+ newsPreview.style.left=left+'px';newsPreview.style.top='12px';
+ const boxHeight=newsPreview.offsetHeight;
+ newsPreview.style.top=Math.max(12,Math.min(rect.height-boxHeight-12,y-boxHeight-15))+'px';
+}
+news.onHover=(p,x,y)=>{if(!previewPinned){if(p)showMarkerPreview(p,x,y);else closeMarkerPreview();}};
+$('wpMarkerExplore').addEventListener('click',()=>{const p=previewPoint;closeMarkerPreview();if(p)showNews(p);});
+renderer.domElement.addEventListener('pointerdown',()=>{if(!previewPinned)closeMarkerPreview();});
+
 // Geographic navigation is restricted to locations actually mapped in the RSS feed.
 // This avoids suggesting coverage for places with no verified mapped news subject.
 const geoNavSection=document.createElement('div');geoNavSection.className='section';
@@ -197,7 +229,7 @@ function setHistoricalBanner(on,at,visible=0,stored=0,total=0){
  historicalText.textContent=on?'ARCHIVE · '+new Date(at).toLocaleString()+' · geographic subjects':'';
  historicalCoverage.textContent=on?`${visible} plotted / ${stored} stored${total?` · ${total} live-feed signals at collection`:''} · sample capped at 45`:'';
 }
-function restoreLive(){
+function restoreLive(){closeMarkerPreview();
  historicalObservation=null;setHistoricalDots([]);setHistoricalBanner(false);
  layers.news.visible=$('newsToggle').checked;
  if(newsFeed)news.setPoints(newsFeed.points);
@@ -228,7 +260,7 @@ function makeFilterUI(){
   b.addEventListener('click',()=>{const on=!b.classList.contains('on');b.classList.toggle('on',on);news.setCategory(k,on);if($('storySearch').value)exploreStories();renderDiscovery();});holder.append(b);
  }
 }
-async function updateNews(){
+async function updateNews(){closeMarkerPreview();
  $('newsHint').textContent='Loading mapped headlines…';
  try{
   const d=await fetchNews();newsFeed=d;buildGeoEntries();renderAtGlance();if(!historicalObservation)news.setPoints(d.points);newsLastUpdated=Date.now();
@@ -358,7 +390,7 @@ function renderPlaceNews(){
   target.append(card);
  }
 }
-function openPlaceNews(e){
+function openPlaceNews(e){closeMarkerPreview();
  if(historicalObservation){geoStatus.textContent='Return to Live to browse current location articles.';return;}
  activePlace=e;placeReturnFocus=document.activeElement;
  $('wpPlaceName').textContent=e.name;
@@ -380,7 +412,7 @@ document.addEventListener('keydown',e=>{if(placeOverlay.hidden)return;if(e.key==
  const focusables=[...placeOverlay.querySelectorAll('button:not([disabled]),select:not([disabled]),a[href]')];const first=focusables[0],last=focusables.at(-1);
  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
 }});
-function showNews(p){
+function showNews(p){closeMarkerPreview();
  if(!historicalObservation && p?.name){const entry=geoEntries.find(e=>e.name.toLocaleLowerCase()===String(p.name).toLocaleLowerCase());if(entry){openPlaceNews(entry);return;}}
  if(historicalObservation){$('newsDrawer').hidden=false;$('newsTitle').textContent=p.name||'Historical geographic subject';$('newsMeta').textContent='Archived sampled reporting · '+historicalObservation.at+' · no article links retained for these map points';$('newsStories').replaceChildren(document.createTextNode('Use Time Explorer to read the archived headline examples. These markers are geographic subjects, not verified event sites.'));return;}
  selectedNews=p;
@@ -515,7 +547,11 @@ renderer.domElement.addEventListener('pointerup',e=>{
  if(newsPointerDown&&Math.hypot(newsPointerDown.x-e.clientX,newsPointerDown.y-e.clientY)<6){
   const link=crossBorder.pick(e,camera,renderer.domElement.getBoundingClientRect());
   if(link){settings.rotate=false;$('rotationToggle').checked=false;showCrossBorderDetails(link);}
-  else news.pick(e.clientX,e.clientY);
+  else if(e.pointerType==='touch'||e.pointerType==='pen'){
+   const hit=news.hitAt(e.clientX,e.clientY);
+   if(hit){if(previewPinned&&previewPoint===hit){closeMarkerPreview();news.onSelect?.(hit);}else showMarkerPreview(hit,e.clientX,e.clientY,true);}
+   else closeMarkerPreview();
+  }else{closeMarkerPreview();news.pick(e.clientX,e.clientY);}
  }
  newsPointerDown=null;
 });
@@ -571,9 +607,9 @@ async function changeRoutes(){
   $('seaCount').textContent=layers.sea.userData.count.toLocaleString();
  }catch(e){console.warn('WorldPulse connections:',e);$('airHint').textContent='Route dataset unavailable';$('seaHint').textContent='Route dataset unavailable';}
 }
-function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>{news.setVisible(v);if(historicalObservation)layers.news.visible=false;historicalDots.visible=v;});bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
+function bindToggle(id,callback){$(id).addEventListener('change',e=>callback(e.target.checked));}bindToggle('newsToggle',v=>{if(!v)closeMarkerPreview();news.setVisible(v);if(historicalObservation)layers.news.visible=false;historicalDots.visible=v;});bindToggle('airToggle',v=>layers.air.visible=v);bindToggle('seaToggle',v=>layers.sea.visible=v);bindToggle('routesMotionToggle',v=>{settings.routesMotion=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('populationToggle',v=>{if(layers.population)layers.population.visible=v;});bindToggle('bordersToggle',v=>layers.borders&&(layers.borders.visible=v));bindToggle('meshToggle',v=>layers.mesh.visible=v);bindToggle('rotationToggle',v=>{settings.rotate=v;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('flickerToggle',v=>{settings.flicker=v;if(pop)pop.material.uniforms.uFlicker.value=v?1:0;if(v&&settings.reduce){settings.reduce=false;$('motionToggle').checked=false;}});bindToggle('motionToggle',v=>{settings.reduce=v;if(v){settings.rotate=false;settings.flicker=false;settings.routesMotion=false;$('routesMotionToggle').checked=false;if(pop)pop.material.uniforms.uFlicker.value=0;$('rotationToggle').checked=false;$('flickerToggle').checked=false;}});$('quality').addEventListener('change',async e=>{settings.quality=e.target.value;status.innerHTML='<span class="status-led"></span> REBUILDING DOTS';await changePopulation();await changeRoutes();await updateNews();status.innerHTML='<span class="status-led"></span> RENDERER READY';});$('rotationToggle').checked=settings.rotate;$('flickerToggle').checked=settings.flicker;$('motionToggle').checked=settings.reduce;$('routesMotionToggle').checked=settings.routesMotion;
 $('homeBtn').addEventListener('click',()=>{geoFlight=null;controls.reset();fitGlobeView(true);});
-function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
+function tick(now){requestAnimationFrame(tick);const dt=Math.min(.05,(now-last)/1000);last=now;controls.autoRotate=settings.rotate&&!settings.reduce&&document.visibilityState==='visible';controls.update();advanceGeoFlight(now);news.update();if(previewPoint&&!news.active.includes(previewPoint))closeMarkerPreview();if(pop){pop.material.uniforms.uCameraDistance.value=camera.position.length();if(document.visibilityState==='visible'&&!settings.reduce)pop.material.uniforms.uTime.value+=dt;}for(const key of ['air','sea']){const m=layers[key]?.userData?.lines?.material;if(m){m.uniforms.uMotion.value=settings.routesMotion&&!settings.reduce?1:0;if(document.visibilityState==='visible'&&!settings.reduce&&settings.routesMotion)m.uniforms.uTime.value+=dt;}}renderer.render(scene,camera);frame++;}requestAnimationFrame(tick);load();
 function clock(){const d=new Date();$('utc').textContent='UTC '+d.toISOString().slice(11,16);}clock();setInterval(clock,30000);
 // News is read from the original WorldPulse publisher feed; no synthetic headlines.
 setInterval(()=>{if(document.visibilityState==='visible')updateNews()},15*60*1000);

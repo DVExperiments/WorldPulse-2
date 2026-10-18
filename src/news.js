@@ -42,7 +42,7 @@ function markerTexture(){
  x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);
 }
 export class NewsLayer{
- constructor(group,camera,dom){this.group=group;this.camera=camera;this.dom=dom;this.points=[];this.active=[];this.selected=null;this.enabled=true;this.categories=new Set(Object.keys(NEWS_COLORS));this.mode='balanced';this.lastTier=-1;this.texture=markerTexture();this.raycaster=new THREE.Raycaster();this.raycaster.params.Points.threshold=.017;this.mouse=new THREE.Vector2();this.geometry=null;this.markers=null;this.onSelect=null;this.hoveredIndex=-1;this._hoverMove=e=>this.hoverAt(e.clientX,e.clientY);this._hoverLeave=()=>this.clearHover();this.dom.addEventListener('pointermove',this._hoverMove,{passive:true});this.dom.addEventListener('pointerleave',this._hoverLeave);}
+ constructor(group,camera,dom){this.group=group;this.camera=camera;this.dom=dom;this.points=[];this.active=[];this.selected=null;this.enabled=true;this.categories=new Set(Object.keys(NEWS_COLORS));this.mode='balanced';this.lastTier=-1;this.texture=markerTexture();this.raycaster=new THREE.Raycaster();this.raycaster.params.Points.threshold=.017;this.mouse=new THREE.Vector2();this.geometry=null;this.markers=null;this.onSelect=null;this.onHover=null;this.hoveredIndex=-1;this._hoverMove=e=>this.hoverAt(e.clientX,e.clientY);this._hoverLeave=()=>this.clearHover();this.dom.addEventListener('pointermove',this._hoverMove,{passive:true});this.dom.addEventListener('pointerleave',this._hoverLeave);}
  setPoints(points){this.points=points;this.rebuild(true);}
  setCategory(k,on){if(on)this.categories.add(k);else this.categories.delete(k);this.rebuild(true);}
  setVisible(show){this.enabled=show;this.group.visible=show;if(!show)this.clearHover();}
@@ -89,20 +89,21 @@ export class NewsLayer{
    const world=new THREE.Vector3(attr.getX(i),attr.getY(i),attr.getZ(i));this.markers.localToWorld(world);
    if(world.dot(this.camera.position)>=.95)next=i;
   }
-  if(this.hoveredIndex!==next){this.hoveredIndex=next;this.markers.material.uniforms.uHover.value=next;}
+  if(this.hoveredIndex!==next){this.hoveredIndex=next;this.markers.material.uniforms.uHover.value=next;this.onHover?.(next>=0?this.active[next]:null,clientX,clientY);}
  }
- clearHover(){this.hoveredIndex=-1;if(this.markers)this.markers.material.uniforms.uHover.value=-1;}
- pick(clientX,clientY){
-  if(!this.enabled||!this.markers)return false;
+ clearHover(){const had=this.hoveredIndex>=0;this.hoveredIndex=-1;if(this.markers)this.markers.material.uniforms.uHover.value=-1;if(had)this.onHover?.(null);}
+ hitAt(clientX,clientY){
+  if(!this.enabled||!this.markers)return null;
   const rect=this.dom.getBoundingClientRect();this.mouse.set((clientX-rect.left)/rect.width*2-1,-((clientY-rect.top)/rect.height*2-1));
   this.raycaster.setFromCamera(this.mouse,this.camera);
   const hits=this.raycaster.intersectObject(this.markers);
-  if(!hits.length)return false;
-  const p=this.active[hits[0].index];if(!p)return false;
+  if(!hits.length)return null;
+  const p=this.active[hits[0].index];if(!p)return null;
   // Only points on the front-facing hemisphere should be selectable.
   const vec=this.markers.geometry.attributes.position;const i=hits[0].index;
   const world=new THREE.Vector3(vec.getX(i),vec.getY(i),vec.getZ(i));this.group.localToWorld(world);
-  if(world.dot(this.camera.position)<.95)return false;
-  this.onSelect?.(p);return true;
+  if(world.dot(this.camera.position)<.95)return null;
+  return p;
  }
+ pick(clientX,clientY){const p=this.hitAt(clientX,clientY);if(!p)return false;this.onSelect?.(p);return true;}
 }
