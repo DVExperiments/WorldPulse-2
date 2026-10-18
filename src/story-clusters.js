@@ -260,6 +260,14 @@ body.wp-discover-open{overflow:hidden}
   let previousFocus=null;
   function open(){previousFocus=document.activeElement;modal.hidden=false;document.body.classList.add('wp-discover-open');close.focus();}
   function dismiss(){modal.hidden=true;document.body.classList.remove('wp-discover-open');if(previousFocus?.isConnected)previousFocus.focus();else launch.focus();}
+  window.addEventListener('worldpulse:explore',event=>{
+    const detail=event.detail||{};
+    open();
+    const input=document.getElementById('storySearch');
+    if(input && detail.query){input.value=String(detail.query);document.getElementById('searchStories')?.click();}
+    scroll.scrollTop=0;
+    input?.focus();
+  });
   launch.addEventListener('click',open);close.addEventListener('click',dismiss);
   modal.addEventListener('click',e=>{if(e.target===modal)dismiss();});
   modal.addEventListener('keydown',e=>{
@@ -275,3 +283,26 @@ body.wp-discover-open{overflow:hidden}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setupDiscoverWorkspace,{once:true});
 else setupDiscoverWorkspace();
+
+// F.5.3: optional RSS publisher thumbnails. Never infer artwork from a headline.
+(function installDiscoveryThumbnails(){
+ const st=document.createElement('style'); st.textContent=`
+.wp-discover-scroll .discover-card.wp-has-image{display:grid;grid-template-columns:112px minmax(0,1fr);column-gap:12px;align-items:start}
+.wp-discover-scroll .discover-card .wp-story-thumbnail{width:112px;height:85px;object-fit:cover;border-radius:7px;border:1px solid #315767;grid-row:1 / span 3;grid-column:1;background:#102c3b}
+.wp-discover-scroll .discover-card.wp-has-image > strong,.wp-discover-scroll .discover-card.wp-has-image > small,.wp-discover-scroll .discover-card.wp-has-image > .discover-card-actions{grid-column:2}
+@media(max-width:490px){.wp-discover-scroll .discover-card.wp-has-image{grid-template-columns:85px minmax(0,1fr)}.wp-discover-scroll .discover-card .wp-story-thumbnail{width:85px;height:72px}}
+`; document.head.append(st);
+ let feed=null,loading=false;
+ const feeds=['https://dvexperiments.github.io/WorldPulse/data/news.json','./data/news.json'];
+ const secure=url=>{try{const p=new URL(url);return p.protocol==='https:'&&!p.username&&!p.password&& !/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(p.hostname)?p.href:null;}catch{return null;}};
+ async function obtain(){if(feed||loading)return;loading=true;try{for(const src of feeds){try{const r=await fetch(src);if(!r.ok)continue;const d=await r.json();const map=new Map();for(const p of d.points||[])for(const a of p.articles||[])if(a.image_url&&a.url)map.set(a.url,a.image_url);for(const a of d.meta?.unlocated_articles||[])if(a.image_url&&a.url)map.set(a.url,a.image_url);feed=map;break;}catch{}}}finally{loading=false;} }
+ function paint(){const list=document.getElementById('discoverList');if(!list||!feed)return;
+ for(const card of list.querySelectorAll('.discover-card:not([data-wp-image-checked])')){
+ card.dataset.wpImageChecked='1';const anchor=card.querySelector('.discover-card-actions a[href]');if(!anchor)continue;
+ const url=secure(feed.get(anchor.href));if(!url)continue;
+ const img=document.createElement('img');img.className='wp-story-thumbnail';img.src=url;img.loading='lazy';img.decoding='async';img.alt='';img.referrerPolicy='no-referrer';img.onerror=()=>{img.remove();card.classList.remove('wp-has-image');};card.prepend(img);card.classList.add('wp-has-image');
+ }
+ }
+ function setup(){const list=document.getElementById('discoverList');if(!list)return;const obs=new MutationObserver(()=>{if(feed)paint();});obs.observe(list,{childList:true});obtain().then(paint);document.getElementById('wp-discover-launch')?.addEventListener('click',()=>{obtain().then(paint);});}
+ if(document.readyState==='complete')setup();else window.addEventListener('load',setup,{once:true});
+})();
