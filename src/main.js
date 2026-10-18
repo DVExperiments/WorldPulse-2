@@ -166,21 +166,24 @@ $('refreshNews').addEventListener('click',updateNews);
 $('closeNews').addEventListener('click',()=>{$('newsDrawer').hidden=true;});
 renderer.domElement.addEventListener('pointerdown',e=>{newsPointerDown={x:e.clientX,y:e.clientY};});
 renderer.domElement.addEventListener('pointerup',e=>{if(newsPointerDown&&Math.hypot(newsPointerDown.x-e.clientX,newsPointerDown.y-e.clientY)<6)news.pick(e.clientX,e.clientY);newsPointerDown=null;});
-// Responsive globe framing: size the Earth for the *actual stage*, not the full window.
-// Keep room for the hero copy on wide screens; use the centre on narrow screens.
-// View offsets move the projection without moving the scene or distorting coordinates.
+// v2.0F.4.2 — safe responsive globe view.
+// The previous setViewOffset projection moved the Earth out of the canvas on
+// some displays. Never use a projection offset for the default camera.
+// Fit against the actual globe stage, not the browser window.
 let fittedDistance=3.55;
 function fitGlobeView(resetZoom=true){
  const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);
- const wide=w>=680;
- const titleReserve=wide?Math.min(440,w*.43):0;
- const diameter=Math.max(150,Math.min(h*.72,w*(wide?.62:.78),wide?w-titleReserve-30:w-26));
- const fov=THREE.MathUtils.degToRad(camera.fov);
- // Perspective projected sphere silhouette is proportional to 1/sqrt(d^2-r^2).
- fittedDistance=Math.max(2.8,Math.sqrt(1+Math.pow(h/(diameter*Math.tan(fov/2)),2)));
+ camera.clearViewOffset();
  camera.aspect=w/h;
- const centreX=wide?.68:.50,centreY=wide?.52:.51;
- camera.setViewOffset(w,h,(.5-centreX)*w,(.5-centreY)*h,w,h);
+ // Keep the Earth visible in both portrait and landscape viewport shapes.
+ // The radius of the Earth is approximately 1 world unit; connections extend
+ // further, so leave room beyond the solid sphere silhouette.
+ const wide=w>=680;
+ const targetDiameter=Math.max(120,Math.min(h*.70,w*(wide?.46:.78)));
+ const halfFov=THREE.MathUtils.degToRad(camera.fov)*.5;
+ const desiredRadiusPx=targetDiameter*.5;
+ const radius=1.12;
+ fittedDistance=Math.max(3.55,Math.min(6.2,Math.sqrt(radius*radius+Math.pow(radius*h/(2*desiredRadiusPx*Math.tan(halfFov)),2))));
  if(resetZoom){
   camera.position.set(0,0,fittedDistance);
   controls.target.set(0,0,0);
